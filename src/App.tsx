@@ -1,0 +1,100 @@
+import { Switch, Route } from "wouter";
+import { queryClient } from "./lib/queryClient.ts";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import AppSidebar from "@/components/AppSidebar";
+import LoginForm from "@/components/LoginForm";
+import DashboardPage from "@/pages/DashboardPage";
+import IndentsPage from "@/pages/IndentsPage";
+import RawMaterialsPage from "@/pages/RawMaterialsPage";
+import PurchaseOrdersPage from "@/pages/PurchaseOrdersPage";
+import GRNPage from "@/pages/GRNPage";
+import ProductionPage from "@/pages/ProductionPage";
+import VendorsPage from "@/pages/VendorsPage";
+import ExpenditurePage from "@/pages/ExpenditurePage";
+import ReportsPage from "@/pages/ReportsPage";
+import SettingsPage from "@/pages/SettingsPage";
+import NotFound from "@/pages/not-found";
+
+function Router() {
+  return (
+    <Switch>
+      <Route path="/" component={DashboardPage} />
+      <Route path="/indents" component={IndentsPage} />
+      <Route path="/materials" component={RawMaterialsPage} />
+      <Route path="/purchase-orders" component={PurchaseOrdersPage} />
+      <Route path="/grn" component={GRNPage} />
+      <Route path="/production" component={ProductionPage} />
+      <Route path="/expenditure" component={ExpenditurePage} />
+      <Route path="/reports" component={ReportsPage} />
+      <Route path="/vendors" component={VendorsPage} />
+      <Route path="/settings" component={SettingsPage} />
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+function AuthenticatedApp() {
+  const style = {
+    "--sidebar-width": "20rem",
+    "--sidebar-width-icon": "4rem",
+  };
+
+  return (
+    <SidebarProvider style={style as React.CSSProperties}>
+      <div className="flex h-screen w-full">
+        <AppSidebar />
+        <div className="flex flex-col flex-1">
+          <header className="flex items-center justify-between p-4 border-b">
+            <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <div className="text-sm text-muted-foreground">
+              Manufacturing Management System
+            </div>
+          </header>
+          <main className="flex-1 overflow-auto p-6">
+            <Router />
+          </main>
+        </div>
+      </div>
+    </SidebarProvider>
+  );
+}
+
+function AppContent() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-lg font-medium">Loading...</div>
+          <div className="text-sm text-muted-foreground">Checking authentication</div>
+        </div>
+      </div>
+    );
+  }
+
+  // if (!isAuthenticated) {
+  //   return <LoginForm />;
+  // }
+
+  return <AuthenticatedApp />;
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <AuthProvider>
+          <AppContent />
+          <Toaster />
+        </AuthProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
+
+export default App;

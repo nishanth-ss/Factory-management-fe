@@ -1,0 +1,155 @@
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarHeader,
+  SidebarFooter,
+} from "@/components/ui/sidebar";
+import { 
+  Home, 
+  Package, 
+  FileText, 
+  ShoppingCart, 
+  Truck, 
+  Factory, 
+  IndianRupee, 
+  BarChart3,
+  Users,
+  Settings 
+} from "lucide-react";
+import { Link, useLocation } from "wouter";
+
+const navigationItems = [
+  {
+    title: "Dashboard",
+    url: "/",
+    icon: Home,
+  },
+  {
+    title: "Raw Materials",
+    url: "/materials",
+    icon: Package,
+  },
+  {
+    title: "Indents",
+    url: "/indents",
+    icon: FileText,
+  },
+  {
+    title: "Purchase Orders",
+    url: "/purchase-orders",
+    icon: ShoppingCart,
+  },
+  {
+    title: "GRN",
+    url: "/grn",
+    icon: Truck,
+  },
+  {
+    title: "Production",
+    url: "/production",
+    icon: Factory,
+  },
+  {
+    title: "Expenditure",
+    url: "/expenditure",
+    icon: IndianRupee,
+  },
+  {
+    title: "Reports",
+    url: "/reports",
+    icon: BarChart3,
+  },
+];
+
+const adminItems = [
+  {
+    title: "Vendors",
+    url: "/vendors",
+    icon: Users,
+  },
+  {
+    title: "Settings",
+    url: "/settings",
+    icon: Settings,
+  },
+];
+
+export default function AppSidebar() {
+  const [location] = useLocation();
+
+  return (
+    <Sidebar data-testid="sidebar-main">
+      <SidebarHeader className="p-4">
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded bg-primary flex items-center justify-center">
+            <Factory className="h-4 w-4 text-primary-foreground" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold">MfgMS</h2>
+            <p className="text-xs text-muted-foreground">Manufacturing Management</p>
+          </div>
+        </div>
+      </SidebarHeader>
+      
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Main Menu</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navigationItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={location === item.url}
+                    data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+                  >
+                    <Link href={item.url}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Administration</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {adminItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={location === item.url}
+                    data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+                  >
+                    <Link href={item.url}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      <SidebarFooter className="p-4">
+        <div className="text-xs text-muted-foreground">
+          User: Admin
+          <br />
+          Plant: Main Factory
+        </div>
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
