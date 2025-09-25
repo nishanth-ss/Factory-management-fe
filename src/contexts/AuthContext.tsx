@@ -1,10 +1,13 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { createContext, useContext } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { User } from "@shared/schema";
+import type { User, AuthResponse } from "@/types/auth";
+import { useDispatch, useSelector } from "react-redux";
+import { setUser, clearUser } from "@/store/authSlice";
+import type { AppDispatch, RootState } from "@/store/store";
 
 interface AuthContextType {
-  user: Pick<User, 'id' | 'name' | 'email' | 'role'> | null;
+  user: Pick<User, "id" | "name" | "email" | "role"> | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
@@ -17,87 +20,65 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
+  if (!context) throw new Error("useAuth must be used within AuthProvider");
   return context;
 }
 
-interface AuthProviderProps {
-  children: React.ReactNode;
-}
-
-export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<Pick<User, 'id' | 'name' | 'email' | 'role'> | null>(null);
-
-  // Check if user is authenticated on app load
-  const { data: authData, isLoading } = useQuery({
-    queryKey: ["/api/auth/me"],
-    retry: false,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
-
-  // Update user state when auth data changes
-  useEffect(() => {
-    if (authData && 'user' in authData) {
-      setUser(authData.user);
-    } else {
-      setUser(null);
-    }
-  }, [authData]);
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const dispatch: AppDispatch = useDispatch();
+  const user = useSelector((state: RootState) => state.auth.user);
 
   // Login mutation
-  const loginMutation = useMutation({
-    mutationFn: async ({ email, password }: { email: string; password: string }) => {
-      return await apiRequest('POST', '/api/auth/login', { email, password });
-    },
-    onSuccess: (data: any) => {
-      if (data && 'user' in data) {
-        setUser(data.user);
+  const loginMutation = useMutation<AuthResponse, unknown, { email: string; password: string }>({
+    mutationFn: async ({ email, password }) =>
+      apiRequest<AuthResponse>("POST", "/auth/login", { email, password }, { withCredentials: false }),
+    onSuccess: (data) => {
+      if (data.user && data.data) {
+        dispatch(
+          setUser({
+            user: {
+              name: data.user.name,
+              email: data.user.email,
+              role: data.user.role,
+            },
+            token: data.data, // JWT from API
+          })
+        );
       }
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
     },
   });
 
   // Logout mutation
-  const logoutMutation = useMutation({
-    mutationFn: async () => {
-      return await apiRequest('POST', '/api/auth/logout');
-    },
+  const logoutMutation = useMutation<void, unknown>({
+    mutationFn: async () => apiRequest<void>("POST", "/auth/logout"),
     onSuccess: () => {
-      setUser(null);
-      queryClient.clear(); // Clear all cached data
+      dispatch(clearUser());
+      queryClient.clear();
     },
   });
 
-  const login = async (email: string, password: string) => {
+  // Functions
+  const login = async (email: string, password: string): Promise<void> => {
     await loginMutation.mutateAsync({ email, password });
   };
 
-  const logout = async () => {
-    await logoutMutation.mutateAsync();
-  };
+  const logout = async () => logoutMutation.mutateAsync();
 
-  const hasRole = (role: string) => {
-    return user?.role === role;
-  };
-
-  const hasAnyRole = (roles: string[]) => {
-    return user ? roles.includes(user.role) : false;
-  };
-
-  const value = {
-    user,
-    isLoading,
-    isAuthenticated: !!user,
-    login,
-    logout,
-    hasRole,
-    hasAnyRole,
-  };
+  const hasRole = (role: string) => user?.role === role;
+  const hasAnyRole = (roles: string[]) => (user ? roles.includes(user.role ?? "") : false);
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading: loginMutation.isPending || logoutMutation.isPending,
+        isAuthenticated: !!user,
+        login,
+        logout,
+        hasRole,
+        hasAnyRole,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

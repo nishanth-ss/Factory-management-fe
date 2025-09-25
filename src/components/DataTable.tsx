@@ -25,7 +25,7 @@ export default function DataTable({
   columns, 
   data, 
   searchable = true, 
-  exportable = true 
+  exportable = true,
 }: DataTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
@@ -38,11 +38,14 @@ export default function DataTable({
     setSortConfig({ key, direction });
   };
 
-  const filteredData = data.filter(row =>
-    Object.values(row).some(value =>
-      String(value).toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredData = Array.isArray(data)
+  ? data.filter(row =>
+      Object.values(row).some(value =>
+        String(value).toLowerCase().includes(searchTerm.toLowerCase())
+      )
     )
-  );
+  : [];
+
 
   const sortedData = sortConfig
     ? [...filteredData].sort((a, b) => {

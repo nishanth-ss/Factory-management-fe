@@ -77,9 +77,9 @@ function AppContent() {
     );
   }
 
-  // if (!isAuthenticated) {
-  //   return <LoginForm />;
-  // }
+  if (!isAuthenticated) {
+    return <LoginForm />;
+  }
 
   return <AuthenticatedApp />;
 }

@@ -5,70 +5,51 @@ import StatusBadge from "@/components/StatusBadge";
 import IndentForm from "@/components/IndentForm";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Eye, Edit } from "lucide-react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Indent, IndentItem, User } from "@shared/schema";
-
-// Define types for API response
-type IndentWithItems = Indent & {
-  items: IndentItem[];
-  requestedByUser: Pick<User, 'id' | 'name' | 'email'>;
-};
-
-// Transform API data for table display
-function transformIndentData(indents: IndentWithItems[]) {
-  return indents.map(indent => ({
-    id: indent.indentNo,
-    originalId: indent.id, 
-    indentNo: indent.indentNo,
-    materials: indent.items.length > 2 
-      ? `${indent.items.length} materials requested`
-      : indent.items.map((item, i) => `Item ${i + 1}: ${item.qty} units`).join(", "),
-    itemCount: `${indent.items.length} items`,
-    status: indent.status,
-    requestedBy: indent.requestedByUser.name,
-    submittedAt: indent.submittedAt ? new Date(indent.submittedAt).toLocaleDateString('en-IN') : 'Not submitted',
-    fullData: indent // Store complete data for view/edit
-  }));
-}
+import type { IndentStatus, IndentType } from "@/types/indent";
+import { useIndents } from "@/hooks/useIndent";
+import FormattedDate from "@/lib/formatDate";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/store/store";
 
 export default function IndentsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [selectedIndent, setSelectedIndent] = useState<IndentWithItems | null>(null);
+  const [selectedIndent, setSelectedIndent] = useState<IndentType | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [newStatus, setNewStatus] = useState<string>("");
   const { toast } = useToast();
 
   // Fetch indents data
-  const { data: indents, isLoading } = useQuery<IndentWithItems[]>({
-    queryKey: ["/api/indents"],
-  });
+  useIndents();
+  const indentState = useSelector((state: RootState) => state.manufacturing.indentResponse);
+  const indent = indentState?.data?.indents || [];
 
   // Status update mutation
   const statusUpdateMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      return await apiRequest('PATCH', `/api/indents/${id}/status`, { status });
+      return await apiRequest('PATCH', `/indents/${id}/status`, { status });
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (_, variables) => {
       toast({ description: `Status updated to ${variables.status}` });
-      queryClient.invalidateQueries({ queryKey: ["/api/indents"] });
+      queryClient.invalidateQueries({ queryKey: ["indent"] });
       setIsEditDialogOpen(false);
       setSelectedIndent(null);
       setNewStatus("");
     },
     onError: (error: any) => {
-      toast({ 
-        description: error.message || "Failed to update status", 
-        variant: "destructive" 
+      toast({
+        description: error.message || "Failed to update status",
+        variant: "destructive"
       });
     }
   });
 
   // Transform data for table
-  const transformedIndents = indents ? transformIndentData(indents) : [];
+  const transformedIndent = indent ? indent : [];
 
   // Action handlers
   const handleView = (rowData: any) => {
@@ -84,9 +65,9 @@ export default function IndentsPage() {
 
   const handleStatusUpdate = () => {
     if (selectedIndent && newStatus && newStatus !== selectedIndent.status) {
-      statusUpdateMutation.mutate({ 
-        id: selectedIndent.id, 
-        status: newStatus 
+      statusUpdateMutation.mutate({
+        id: selectedIndent.id ? selectedIndent.id : "",
+        status: newStatus
       });
     } else if (newStatus === selectedIndent?.status) {
       toast({ description: "No changes to save" });
@@ -94,33 +75,37 @@ export default function IndentsPage() {
   };
 
   const indentColumns = [
-    { key: "indentNo", header: "Indent No", sortable: true },
+    { key: "indent_no", header: "Indent No", sortable: true },
     { key: "materials", header: "Materials", sortable: true },
     { key: "itemCount", header: "Items", sortable: true },
-    { 
-      key: "status", 
-      header: "Status", 
+    {
+      key: "status",
+      header: "Status",
       sortable: true,
-      render: (status: string) => <StatusBadge status={status as any} size="sm" />
+      render: (value: any) => {
+        console.log("status",value);
+        return (
+        <StatusBadge status={value as IndentStatus} size="sm" />
+      )}
     },
-    { key: "requestedBy", header: "Requested By", sortable: true },
-    { key: "submittedAt", header: "Date", sortable: true },
+    { key: "requested_by_name", header: "Requested By", sortable: true, },
+    { key: "created_at", header: "Date", sortable: true, render: (value: any) => <FormattedDate date={value} /> },
     {
       key: "actions",
       header: "Actions",
       render: (_value: any, row: any) => (
         <div className="flex gap-1">
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => handleView(row)}
             data-testid={`button-view-${row.originalId}`}
           >
             <Eye className="h-3 w-3" />
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => handleUpdateStatus(row)}
             data-testid={`button-edit-${row.originalId}`}
             title="Update Status"
@@ -139,7 +124,7 @@ export default function IndentsPage() {
           <h1 className="text-3xl font-bold">Indent Register</h1>
           <p className="text-muted-foreground">Manage material requisition requests</p>
         </div>
-        
+
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button data-testid="button-create-indent">
@@ -151,34 +136,24 @@ export default function IndentsPage() {
             <DialogHeader>
               <DialogTitle>Create New Indent</DialogTitle>
             </DialogHeader>
-            <IndentForm 
-              onSubmit={(data) => {
-                console.log("Indent submitted:", data);
-                setIsCreateDialogOpen(false);
-              }}
-              onDraft={(data) => {
-                console.log("Indent saved as draft:", data);
-                setIsCreateDialogOpen(false);
-              }}
-            />
+            <IndentForm />
           </DialogContent>
         </Dialog>
       </div>
 
-      <DataTable 
+      <DataTable
         title="All Indents"
         columns={indentColumns}
-        data={transformedIndents}
+        data={transformedIndent || []}
         searchable={true}
         exportable={true}
-        loading={isLoading}
       />
 
       {/* View Indent Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>View Indent - {selectedIndent?.indentNo}</DialogTitle>
+            <DialogTitle>View Indent - {selectedIndent?.indent_no}</DialogTitle>
           </DialogHeader>
           {selectedIndent && (
             <div className="space-y-6">
@@ -186,10 +161,10 @@ export default function IndentsPage() {
                 <div>
                   <h3 className="font-semibold mb-2">Basic Details</h3>
                   <div className="space-y-2 text-sm">
-                    <p><strong>Indent No:</strong> {selectedIndent.indentNo}</p>
-                    <p><strong>Status:</strong> <StatusBadge status={selectedIndent.status} size="sm" /></p>
-                    <p><strong>Requested By:</strong> {selectedIndent.requestedByUser.name}</p>
-                    <p><strong>Submitted:</strong> {selectedIndent.submittedAt ? new Date(selectedIndent.submittedAt).toLocaleString('en-IN') : 'Not submitted'}</p>
+                    <p><strong>Indent No:</strong> {selectedIndent.indent_no}</p>
+                    <p><strong>Status:</strong> <StatusBadge status={selectedIndent.status || "draft"} size="sm" /></p>
+                    <p><strong>Requested By:</strong> {selectedIndent.required_by || "N/A"}</p>
+                    <p><strong>Submitted:</strong> {selectedIndent.date ? new Date(selectedIndent.date).toLocaleString('en-IN') : 'Not submitted'}</p>
                   </div>
                 </div>
                 <div>
@@ -200,7 +175,7 @@ export default function IndentsPage() {
                   </div>
                 </div>
               </div>
-              
+
               <div>
                 <h3 className="font-semibold mb-2">Requested Items</h3>
                 <div className="border rounded-lg overflow-hidden">
@@ -233,13 +208,13 @@ export default function IndentsPage() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Update Status - {selectedIndent?.indentNo}</DialogTitle>
+            <DialogTitle>Update Status - {selectedIndent?.indent_no}</DialogTitle>
           </DialogHeader>
           {selectedIndent && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  Current Status: <StatusBadge status={selectedIndent.status} size="sm" />
+                  Current Status: <StatusBadge status={selectedIndent.status || "draft"} size="sm" />
                 </p>
                 <div>
                   <label htmlFor="status" className="text-sm font-medium">
@@ -259,17 +234,17 @@ export default function IndentsPage() {
                   </Select>
                 </div>
               </div>
-              
+
               <div className="flex gap-2 justify-end">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setIsEditDialogOpen(false)}
                   disabled={statusUpdateMutation.isPending}
                   data-testid="button-cancel-status"
                 >
                   Cancel
                 </Button>
-                <Button 
+                <Button
                   onClick={handleStatusUpdate}
                   disabled={statusUpdateMutation.isPending || newStatus === selectedIndent.status}
                   data-testid="button-save-status"

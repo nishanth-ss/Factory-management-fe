@@ -3,27 +3,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/useNoistackToast";
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
-  const { toast } = useToast();
-
+    const { toast } = useToast();
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
       await login(email, password);
-      toast({ description: "Login successful!" });
+      toast("Login successful", { variant: "success" });
     } catch (error: any) {
-      toast({ 
-        description: error.message || "Login failed", 
-        variant: "destructive" 
-      });
+     toast(error.message, { variant: "error" });
     } finally {
       setIsLoading(false);
     }
