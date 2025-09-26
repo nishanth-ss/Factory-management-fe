@@ -14,6 +14,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useCreateRawMaterial, useRawMaterials, useUpdateRawMaterial } from "@/hooks/useRawMaterial";
+import { useDebounce } from "@/hooks/useDebounce";
 import type { RawMaterialType } from "@/types/rawMaterial";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/store/store";
@@ -89,7 +90,9 @@ export default function RawMaterialsPage() {
   const rowsPerPage = 5;
   const createMutation = useCreateRawMaterial();
   const updateMutation = useUpdateRawMaterial();
-  const { refetch } = useRawMaterials({ page: page, limit: rowsPerPage });
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 350);
+  const { refetch } = useRawMaterials({ page: page, limit: rowsPerPage, search: debouncedSearch });
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
 
   const { rawMaterialResponse } = useSelector((state: RootState) => state.manufacturing);
@@ -474,6 +477,11 @@ export default function RawMaterialsPage() {
           totalRecords={rawMaterialResponse?.total || 0}
           currentPage={page}
           onPageChange={(newPage) => setPage(newPage)}
+          search={search}
+          onSearch={(term) => {
+            setSearch(term);
+            setPage(1);
+          }}
         />
       )}
 

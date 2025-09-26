@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { IndentStatus, IndentType } from "@/types/indent";
 import { useIndents, useUpdateIndent } from "@/hooks/useIndent";
+import { useDebounce } from "@/hooks/useDebounce";
 import FormattedDate from "@/lib/formatDate";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/store/store";
@@ -24,9 +25,11 @@ export default function IndentsPage() {
   const { toast } = useToast();
   const [page, setPage] = useState(1);
   const rowsPerPage = 5;
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 350);
 
-  // Fetch indents data
-  const { refetch } = useIndents({ page: page, limit: rowsPerPage });
+  // Fetch indents data (debounced by search)
+  const { refetch } = useIndents({ page: page, limit: rowsPerPage, search: debouncedSearch });
   const indentState = useSelector((state: RootState) => state.manufacturing.indentResponse);
   const indentData = indentState?.data;
   const indent = indentState?.data?.indents || [];
@@ -185,6 +188,11 @@ export default function IndentsPage() {
         totalRecords={indentData?.total || 0}
         currentPage={page}
         onPageChange={(newPage) => setPage(newPage)}
+        search={search}
+        onSearch={(term) => {
+          setSearch(term);
+          setPage(1); // already handled by DataTable, but safe if you call here instead
+        }}
       />
 
       {/* View Indent Dialog */}

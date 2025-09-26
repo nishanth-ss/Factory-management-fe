@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Download } from "lucide-react";
-import { useState } from "react";
 
 interface Column {
   key: string;
@@ -22,7 +21,9 @@ interface DataTableProps {
   rowsPerPage?: number;
   totalRecords?: number;      // total from API
   currentPage?: number;       // controlled from parent
-  onPageChange?: (page: number) => void; // callback to fetch new page
+  onPageChange?: (page: number) => void;
+  search?: string;
+  onSearch?: (term: string) => void;
 }
 
 export default function DataTable({
@@ -36,10 +37,9 @@ export default function DataTable({
   totalRecords = 0,
   currentPage = 1,
   onPageChange,
+  search,
+  onSearch,
 }: DataTableProps) {
-  const [searchTerm, setSearchTerm] = useState("");
-
-  // total pages from API totalRecords
   const totalPages = Math.ceil(totalRecords / rowsPerPage);
 
   return (
@@ -53,10 +53,9 @@ export default function DataTable({
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search..."
-                  value={searchTerm}
+                  value={search}
                   onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    if (onPageChange) onPageChange(1); // reset page to 1 on search
+                    onSearch?.(e.target.value);
                   }}
                   className="pl-8 w-64"
                 />

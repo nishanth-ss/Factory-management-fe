@@ -15,6 +15,7 @@ import { z } from "zod";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/store/store";
 import { usePurchaseOrders, useCreatePurchaseOrder, useUpdatePurchaseOrder } from "@/hooks/usePurchaseOrder";
+import { useDebounce } from "@/hooks/useDebounce";
 import FormattedDate from "@/lib/formatDate";
 
 const insertPurchaseOrderSchema = z.object({
@@ -91,7 +92,9 @@ export default function PurchaseOrdersPage() {
   const [selectedPO, setSelectedPO] = useState<any | null>(null);
   const [newStatus, setNewStatus] = useState<string>("");
 
-  const { data: purchaseOrdersResponse, refetch } = usePurchaseOrders({ page, limit: rowsPerPage });
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 350);
+  const { data: purchaseOrdersResponse } = usePurchaseOrders({ page, limit: rowsPerPage, search: debouncedSearch });
   const purchaseOrders = Array.isArray(purchaseOrdersResponse?.data) ? purchaseOrdersResponse?.data : [];
   const totalRecords = purchaseOrdersResponse?.total ?? 0;
 
@@ -608,7 +611,10 @@ export default function PurchaseOrdersPage() {
           currentPage={page}
           onPageChange={(newPage) => {
             setPage(newPage);
-            refetch();
+          }}
+          search={search}
+          onSearch={(term) => {
+            setSearch(term);
           }}
         />
       )}

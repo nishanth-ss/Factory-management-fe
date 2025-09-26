@@ -6,16 +6,23 @@ import { setIndentResponse } from "@/store/manufacturingCollection";
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
 
-export const useIndents = (params?: { page?: number; limit?: number }) => {
+export const useIndents = (params?: { page?: number; limit?: number; search?: string }) => {
   const dispatch = useDispatch();
 
+  const page = params?.page ?? 1;
+  const limit = params?.limit ?? 10;
+  const search = params?.search ?? "";
+
   const query = useQuery<IndentsApiResponse>({
-    queryKey: ["indents"],
+    queryKey: ["indents", page, limit, search],
     queryFn: async () => {
-      const queryString = params ? new URLSearchParams(params as any).toString() : "";
-      const res = await apiRequest<IndentsApiResponse>("GET", `/indent?${queryString}`);
+      const qs = new URLSearchParams({ page: String(page), limit: String(limit), search }).toString();
+      const res = await apiRequest<IndentsApiResponse>("GET", `/indent?${qs}`);
       return res; // return the full API response, not just the array
     },
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 10_000,
   });
 
   useEffect(() => {

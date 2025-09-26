@@ -6,15 +6,16 @@ import { setPurchaseOrderResponse } from "@/store/manufacturingCollection";
 import { useEffect } from "react";
 import type { PurchaseOrderApiResponse, PurchaseOrder } from "@/types/purchaseType";
 
-export function usePurchaseOrders(params?: { page?: number; limit?: number }) {
+export function usePurchaseOrders(params?: { page?: number; limit?: number; search?: string }) {
     const dispatch = useDispatch();
     const page = params?.page ?? 1;
     const limit = params?.limit ?? 10;
+    const search = params?.search ?? "";
 
     const query = useQuery<PurchaseOrderApiResponse, Error>({
-        queryKey: ["purchaseOrders", page, limit],
+        queryKey: ["purchaseOrders", page, limit, search],
         queryFn: async () => {
-            const url = `/purchase?page=${page}&limit=${limit}`;
+            const url = `/purchase?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`;
             const res = await apiRequest<PurchaseOrderApiResponse>("GET", url);
             return res; // return full API response
         },
