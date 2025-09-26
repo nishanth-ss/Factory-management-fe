@@ -6,14 +6,14 @@ import { useDispatch } from "react-redux";
 import { setRawMaterialResponse } from "@/store/manufacturingCollection";
 import { useEffect } from "react";
 
-export function useRawMaterials() {
+export function useRawMaterials({ page, limit }: { page: number; limit: number }) {
   const dispatch = useDispatch();
 
   const query = useQuery<RawMaterialsApiResponse, Error>({
     queryKey: ["raw-materials"],
     queryFn: async () => {
       const res = await apiRequest<RawMaterialsApiResponse>("GET", "/raw-material", undefined, {
-        params: { page: 1, limit: 10 },
+        params: { page, limit },
       });
       return res; // return full API response
     },
@@ -34,7 +34,24 @@ export const useCreateRawMaterial = () => {
 
   return useMutation<RawMaterialCreateResponse, Error, RawMaterialType>({
     mutationFn: (data: RawMaterialType) =>
-      apiRequest<RawMaterialCreateResponse>("POST", "/raw-material", data, { withCredentials: false }),
+      apiRequest<RawMaterialCreateResponse>("POST", "/raw-material", data),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["raw-materials"] });
+      toast(res.message, { variant: "success" });
+    },
+    onError: (error) => {
+      toast(error.message, { variant: "error" });
+    },
+  });
+};
+
+export const useUpdateRawMaterial = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation<RawMaterialCreateResponse, Error, { id: string; data: RawMaterialType }>({
+    mutationFn: ({ id, data }) =>
+      apiRequest<RawMaterialCreateResponse>("PUT", `/raw-material/${id}`, data),
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["raw-materials"] });
       toast(res.message, { variant: "success" });

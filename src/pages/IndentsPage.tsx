@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import DataTable from "@/components/DataTable";
 import StatusBadge from "@/components/StatusBadge";
@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { IndentStatus, IndentType } from "@/types/indent";
-import { useIndents } from "@/hooks/useIndent";
+import { useIndents, useUpdateIndent } from "@/hooks/useIndent";
 import FormattedDate from "@/lib/formatDate";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/store/store";
@@ -22,11 +22,19 @@ export default function IndentsPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [newStatus, setNewStatus] = useState<string>("");
   const { toast } = useToast();
+  const [page, setPage] = useState(1);
+  const rowsPerPage = 5;
 
   // Fetch indents data
-  useIndents();
+  const { refetch } = useIndents({ page: page, limit: rowsPerPage });
   const indentState = useSelector((state: RootState) => state.manufacturing.indentResponse);
+  const indentData = indentState?.data;
   const indent = indentState?.data?.indents || [];
+  const updateIndent = useUpdateIndent();
+
+  useEffect(() => {
+    refetch();
+  }, [page, refetch]);
 
   // Status update mutation
   const statusUpdateMutation = useMutation({
@@ -48,8 +56,34 @@ export default function IndentsPage() {
     }
   });
 
+  function transformIndentData(indents: IndentType[]) {
+    return indents.map(indent => {
+      return {
+        id: indent.id,
+        originalId: indent.id,
+        indent_no: indent.indent_no,
+        materials: indent.items.length > 2
+          ? `${indent.items.length} materials requested`
+          : indent.items.map((item, i) => (
+            <div key={i}>
+              Material {i + 1}: {item.raw_material?.name}
+            </div>
+          )),
+        // : indent.items.map((item, i) => `Item ${i + 1}: ${item.qty} units`).join(", "),
+        itemCount: indent.items.map((item, i) => <div key={i}>Item {i + 1}: {item.qty} units</div>),
+        status: indent.status,
+        requested_by_name: indent.requested_by_name,
+        created_at: indent.created_at
+          ? <FormattedDate date={indent.created_at} />
+          : "-",
+        fullData: indent
+      };
+    });
+  }
+
+
   // Transform data for table
-  const transformedIndent = indent ? indent : [];
+  const transformedIndent = indent ? transformIndentData(indent) : [];
 
   // Action handlers
   const handleView = (rowData: any) => {
@@ -64,14 +98,13 @@ export default function IndentsPage() {
   };
 
   const handleStatusUpdate = () => {
-    if (selectedIndent && newStatus && newStatus !== selectedIndent.status) {
-      statusUpdateMutation.mutate({
-        id: selectedIndent.id ? selectedIndent.id : "",
-        status: newStatus
-      });
-    } else if (newStatus === selectedIndent?.status) {
-      toast({ description: "No changes to save" });
-    }
+    updateIndent.mutate({
+      id: selectedIndent?.id || "",
+      status: newStatus as string
+    });
+    setIsEditDialogOpen(false);
+    setSelectedIndent(null);
+    setNewStatus("");
   };
 
   const indentColumns = [
@@ -83,13 +116,13 @@ export default function IndentsPage() {
       header: "Status",
       sortable: true,
       render: (value: any) => {
-        console.log("status",value);
         return (
-        <StatusBadge status={value as IndentStatus} size="sm" />
-      )}
+          <StatusBadge status={value as IndentStatus} size="sm" />
+        )
+      }
     },
     { key: "requested_by_name", header: "Requested By", sortable: true, },
-    { key: "created_at", header: "Date", sortable: true, render: (value: any) => <FormattedDate date={value} /> },
+    { key: "created_at", header: "Date", sortable: true },
     {
       key: "actions",
       header: "Actions",
@@ -136,7 +169,7 @@ export default function IndentsPage() {
             <DialogHeader>
               <DialogTitle>Create New Indent</DialogTitle>
             </DialogHeader>
-            <IndentForm />
+            <IndentForm setIsCreateDialogOpen={setIsCreateDialogOpen} />
           </DialogContent>
         </Dialog>
       </div>
@@ -147,6 +180,11 @@ export default function IndentsPage() {
         data={transformedIndent || []}
         searchable={true}
         exportable={true}
+        pagination={true}
+        rowsPerPage={rowsPerPage}
+        totalRecords={indentData?.total || 0}
+        currentPage={page}
+        onPageChange={(newPage) => setPage(newPage)}
       />
 
       {/* View Indent Dialog */}
@@ -163,8 +201,8 @@ export default function IndentsPage() {
                   <div className="space-y-2 text-sm">
                     <p><strong>Indent No:</strong> {selectedIndent.indent_no}</p>
                     <p><strong>Status:</strong> <StatusBadge status={selectedIndent.status || "draft"} size="sm" /></p>
-                    <p><strong>Requested By:</strong> {selectedIndent.required_by || "N/A"}</p>
-                    <p><strong>Submitted:</strong> {selectedIndent.date ? new Date(selectedIndent.date).toLocaleString('en-IN') : 'Not submitted'}</p>
+                    <p><strong>Requested By:</strong> {selectedIndent.required_by ? <FormattedDate date={selectedIndent.required_by} formatString="dd/MM/yyyy" /> : "N/A"}</p>
+                    <p><strong>Submitted:</strong> {selectedIndent.created_at ? new Date(selectedIndent.created_at).toLocaleString('en-IN') : 'Not submitted'}</p>
                   </div>
                 </div>
                 <div>
@@ -192,7 +230,7 @@ export default function IndentsPage() {
                         <tr key={index} className="border-t">
                           <td className="p-3">Item {index + 1}</td>
                           <td className="p-3">{item.qty} units</td>
-                          <td className="p-3">{item.purpose || "Not specified"}</td>
+                          <td className="p-3">{item.notes || "Not specified"}</td>
                         </tr>
                       ))}
                     </tbody>

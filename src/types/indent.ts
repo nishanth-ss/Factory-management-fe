@@ -12,7 +12,20 @@ export interface IndentType {
     uom: string;
     notes?: string;
     purpose?: string;
+    raw_material?: {
+      id: string;
+      code: string;
+      name: string;
+      description: string;
+      uom: string;
+      category: string;
+      batchable: boolean;
+      reorder_level: number;
+    };
   }[];
+  requested_by?: string;
+  created_at?: string;
+  requested_by_name?: string;
 }
 
 export type IndentStatus =
@@ -26,6 +39,7 @@ export type IndentStatus =
   | "planned"
   | "qc"
   | "released"
+  | "partially_received"
   | "closed";
 
 export interface IndentsApiResponse {

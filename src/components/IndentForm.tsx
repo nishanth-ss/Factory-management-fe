@@ -29,7 +29,7 @@ const indentSchema = z.object({
 
 type IndentFormData = z.infer<typeof indentSchema>;
 
-export default function IndentForm() {
+export default function IndentForm({ setIsCreateDialogOpen }: { setIsCreateDialogOpen: (value: boolean) => void }) {
   const [items, setItems] = useState([{ id: 1, raw_material_id: "", qty: 0, uom: "", notes: "" }]);
   const createIndent = useCreateIndent();
   const { rawMaterialResponse } = useSelector((state: RootState) => state.manufacturing);
@@ -63,11 +63,21 @@ export default function IndentForm() {
   };
 
   const handleSubmit = (data: IndentFormData) => {
-    createIndent.mutate({...data, status: "approved"});
+    createIndent.mutate({ ...data, status: "approved" }, {
+      onSuccess: () => {
+        form.reset();
+        setIsCreateDialogOpen(false);
+      },
+    });
   };
 
   const handleDraft = (data: IndentFormData) => {
-    createIndent.mutate({...data, status: "draft"});
+    createIndent.mutate({ ...data, status: "draft" }, {
+      onSuccess: () => {
+        form.reset();
+        setIsCreateDialogOpen(false);
+      },
+    });
   };
 
   return (
@@ -89,7 +99,7 @@ export default function IndentForm() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="required_by"
@@ -131,10 +141,10 @@ export default function IndentForm() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-medium">Materials Required</h3>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={addItem}
                   data-testid="button-add-item"
                 >
@@ -177,19 +187,25 @@ export default function IndentForm() {
                       <FormItem>
                         <FormLabel className="block pb-1">Quantity</FormLabel>
                         <FormControl>
-                          <Input 
-                            {...field} 
-                            type="number" 
-                            min="0" 
+                          <Input
+                            {...field}
+                            type="number"
+                            min="0"
                             step="0.01"
-                            onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                            value={field.value ?? ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              field.onChange(val === "" ? "" : parseFloat(val));
+                            }}
                             data-testid={`input-qty-${index}`}
+                            onWheel={(e) => e.currentTarget.blur()}
                           />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+
 
                   <FormField
                     control={form.control}
@@ -250,10 +266,10 @@ export default function IndentForm() {
             />
 
             <div className="flex gap-2 justify-end">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={()=>handleDraft(form.getValues())}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleDraft(form.getValues())}
                 data-testid="button-save-draft"
               >
                 Save as Draft

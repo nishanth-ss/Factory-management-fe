@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import DataTable from "@/components/DataTable";
@@ -13,7 +13,7 @@ import { formatINR } from "@/lib/currency";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useCreateRawMaterial, useRawMaterials } from "@/hooks/useRawMaterial";
+import { useCreateRawMaterial, useRawMaterials, useUpdateRawMaterial } from "@/hooks/useRawMaterial";
 import type { RawMaterialType } from "@/types/rawMaterial";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/store/store";
@@ -25,42 +25,10 @@ export const insertRawMaterialSchema = z.object({
   uom: z.string().min(1, "Unit of measurement is required"),
   category: z.string().optional(),
   batchable: z.boolean().default(true),
-  reorderLevel: z.coerce.number().min(0, "Reorder level cannot be negative").default(0),
+  reorder_level: z.coerce.number().min(0, "Reorder level cannot be negative").default(0),
 });
 
 export type InsertRawMaterial = z.infer<typeof insertRawMaterialSchema>;
-
-const materialColumns = [
-  { key: "code", header: "Material Code", sortable: true },
-  { key: "name", header: "Material Name", sortable: true },
-  { key: "description", header: "Description", sortable: true },
-  { key: "category", header: "Category", sortable: true },
-  {
-    key: "uom",
-    header: "UOM",
-    sortable: true
-  },
-  {
-    key: "reorder_level",
-    header: "Reorder Level",
-    sortable: true,
-    render: (level: string, row: any) => `${parseFloat(level || "0")} ${row.uom}`
-  },
-  {
-    key: "actions",
-    header: "Actions",
-    render: (_value: any, row: any) => (
-      <div className="flex gap-1">
-        <Button variant="outline" size="sm" data-testid={`button-view-${row.id}`}>
-          <Eye className="h-3 w-3" />
-        </Button>
-        <Button variant="outline" size="sm" data-testid={`button-edit-${row.id}`}>
-          <Edit className="h-3 w-3" />
-        </Button>
-      </div>
-    )
-  },
-];
 
 const batchColumns = [
   { key: "batchNo", header: "Batch No", sortable: true },
@@ -115,9 +83,14 @@ const unitOptions = [
 
 export default function RawMaterialsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [selectedIndent, setSelectedIndent] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<"materials" | "batches">("materials");
-  useRawMaterials();
+  const [page, setPage] = useState(1);
+  const rowsPerPage = 5;
   const createMutation = useCreateRawMaterial();
+  const updateMutation = useUpdateRawMaterial();
+  const { refetch } = useRawMaterials({ page: page, limit: rowsPerPage });
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
 
   const { rawMaterialResponse } = useSelector((state: RootState) => state.manufacturing);
   const materials = rawMaterialResponse?.data || [];
@@ -125,6 +98,38 @@ export default function RawMaterialsPage() {
   const { data: batches = [] } = useQuery<any[]>({
     queryKey: ["/api/raw-material-batches"],
   });
+
+  const materialColumns = [
+    { key: "code", header: "Material Code", sortable: true },
+    { key: "name", header: "Material Name", sortable: true },
+    { key: "description", header: "Description", sortable: true },
+    { key: "category", header: "Category", sortable: true },
+    {
+      key: "uom",
+      header: "UOM",
+      sortable: true
+    },
+    {
+      key: "reorder_level",
+      header: "Reorder Level",
+      sortable: true,
+      render: (level: string, row: any) => `${parseFloat(level || "0")} ${row.uom}`
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      render: (_value: any, row: any) => (
+        <div className="flex gap-1">
+          <Button variant="outline" size="sm" data-testid={`button-view-${row.id}`} onClick={() => { setIsViewDialogOpen(true), setSelectedIndent(row) }}>
+            <Eye className="h-3 w-3" />
+          </Button>
+          <Button variant="outline" size="sm" data-testid={`button-edit-${row.id}`} onClick={() => { setIsCreateDialogOpen(true), setSelectedIndent(row) }}>
+            <Edit className="h-3 w-3" />
+          </Button>
+        </div>
+      )
+    },
+  ];
 
   const form = useForm<any>({
     resolver: zodResolver(insertRawMaterialSchema),
@@ -135,17 +140,55 @@ export default function RawMaterialsPage() {
       uom: "",
       category: "",
       batchable: true,
-      reorderLevel: 0,
+      reorder_level: 0,
     },
   });
 
+  useEffect(() => {
+    refetch();
+  }, [refetch, page]);
+
+  useEffect(() => {
+    if (selectedIndent) {
+      // Editing existing material
+      form.reset(selectedIndent);
+    } 
+  }, [selectedIndent, form]);
+
+  useEffect(() => {
+    if (!isCreateDialogOpen) {
+      form.reset();
+      setSelectedIndent(null);
+      form.setValue("batchable", true);
+      form.setValue("reorder_level", 0);
+      form.setValue("category", "");
+      form.setValue("description", "");
+      form.setValue("uom", "");
+      form.setValue("name", "");
+      form.setValue("code", "");
+    }
+  }, [isCreateDialogOpen]);
+
   const onSubmit = (data: RawMaterialType) => {
-    createMutation.mutate(data, {
-      onSuccess: () => {
-        setIsCreateDialogOpen(false);
-        form.reset();
-      },
-    });
+    if (selectedIndent) {
+      updateMutation.mutate(
+        { id: selectedIndent.id, data: form.getValues() }, // combine id + data
+        {
+          onSuccess: () => {
+            setSelectedIndent(null);
+            setIsCreateDialogOpen(false);
+            form.reset();
+          },
+        }
+      );
+    } else {
+      createMutation.mutate(data, {
+        onSuccess: () => {
+          setIsCreateDialogOpen(false);
+          form.reset();
+        },
+      });
+    }
   };
 
   // Combine batch data with material names for display
@@ -157,6 +200,12 @@ export default function RawMaterialsPage() {
       uom: material?.uom || ''
     };
   });
+
+  const handleClose = () => {
+    setSelectedIndent(null);
+    setIsCreateDialogOpen(false);
+    form.reset();
+  };
 
   return (
     <div className="space-y-6" data-testid="page-raw-materials">
@@ -186,6 +235,31 @@ export default function RawMaterialsPage() {
             </Button>
           </div>
 
+          {/* View Indent Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>View Material   - {selectedIndent?.code}</DialogTitle>
+          </DialogHeader>
+          {selectedIndent && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="space-y-2 text-sm">
+                    <p><strong>Material Code:</strong> {selectedIndent.code}</p>
+                    <p><strong>Material Name:</strong> {selectedIndent.name}</p>
+                    <p><strong>Category:</strong> {selectedIndent.category}</p>
+                    <p><strong>UOM:</strong> {selectedIndent.uom}</p>
+                    <p><strong>Reorder Level:</strong> {selectedIndent.reorder_level}</p>
+                    <p><strong>Created At:</strong> {selectedIndent.created_at ? new Date(selectedIndent.created_at).toLocaleString('en-IN') : 'Not submitted'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
           {activeTab === "materials" && (
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
@@ -196,7 +270,7 @@ export default function RawMaterialsPage() {
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Add New Raw Material</DialogTitle>
+                  <DialogTitle>{selectedIndent ? "Edit Raw Material" : "Add New Raw Material"}</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -316,7 +390,7 @@ export default function RawMaterialsPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
-                        name="reorderLevel"
+                        name="reorder_level"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Reorder Level</FormLabel>
@@ -332,6 +406,7 @@ export default function RawMaterialsPage() {
                                 name={field.name}
                                 ref={field.ref}
                                 data-testid="input-reorder-level"
+                                onWheel={(e) => e.currentTarget.blur()}
                               />
                             </FormControl>
                             <FormMessage />
@@ -366,17 +441,17 @@ export default function RawMaterialsPage() {
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setIsCreateDialogOpen(false)}
+                        onClick={handleClose}
                         data-testid="button-cancel-material"
                       >
                         Cancel
                       </Button>
                       <Button
                         type="submit"
-                        disabled={createMutation.isPending}
+                        disabled={createMutation.isPending || updateMutation.isPending}
                         data-testid="button-save-material"
                       >
-                        {createMutation.isPending ? "Creating..." : "Create Material"}
+                        {updateMutation.isPending ? "Updating..." : createMutation.isPending ? "Creating..." : selectedIndent ? "Update Material" : "Create Material"}
                       </Button>
                     </div>
                   </form>
@@ -394,6 +469,11 @@ export default function RawMaterialsPage() {
           data={materials}
           searchable={true}
           exportable={true}
+          pagination={true}
+          rowsPerPage={rowsPerPage}
+          totalRecords={rawMaterialResponse?.total || 0}
+          currentPage={page}
+          onPageChange={(newPage) => setPage(newPage)}
         />
       )}
 

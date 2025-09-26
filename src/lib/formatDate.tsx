@@ -18,7 +18,7 @@ const FormattedDate: React.FC<FormattedDateProps> = ({
     parsedDate = typeof date === "string" ? parseISO(date) : date;
   } catch {
     return <span>Invalid date</span>;
-  }
+  } 
 
   return <span>{format(parsedDate, formatString)}</span>;
 };

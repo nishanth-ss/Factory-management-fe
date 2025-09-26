@@ -18,6 +18,7 @@ const statusConfig: Record<IndentStatus, { status: string; color: string }> = {
   planned: { status: "Planned", color: "bg-status-draft text-black" },
   qc: { status: "QC", color: "bg-status-in-progress text-black" },
   released: { status: "Released", color: "bg-status-completed text-black" },
+  "partially_received": { status: "Partially Received", color: "bg-status-completed text-black" },
   closed: { status: "Closed", color: "bg-status-rejected text-black" },
 };
 
@@ -37,6 +38,7 @@ function normalizeStatus(input?: string): IndentStatus {
     "planned",
     "qc",
     "released",
+    "partially_received",
     "closed",
   ];
   const maybe = raw.replace(/\s+/g, "_") as IndentStatus;

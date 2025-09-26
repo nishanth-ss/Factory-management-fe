@@ -1,6 +1,4 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, Edit, Building2, Mail, Phone, FileText } from "lucide-react";
@@ -10,8 +8,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
+import type { CreateVendor, Vendor } from "@/types/vendor";
+import { useCreateVendor, useUpdateVendor, useVendors } from "@/hooks/useVendor";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/store/store";
 
 interface VendorWithDetails extends Omit<any, 'address'> {
   address?: {
@@ -39,9 +40,12 @@ const insertVendorSchema = z.object({
 
 type InsertVendor = z.infer<typeof insertVendorSchema>;
 
-function VendorForm({ vendor, onSuccess }: { vendor?: VendorWithDetails; onSuccess: () => void }) {
-  const { toast } = useToast();
+function VendorForm({ vendor, setIsCreateOpen }: { vendor?: VendorWithDetails, setIsCreateOpen: (open: boolean) => void }) {
+
+  const createMutation = useCreateVendor();
+  const updateMutation = useUpdateVendor();
   const isEdit = !!vendor;
+
 
   const form = useForm<InsertVendor>({
     resolver: zodResolver(insertVendorSchema),
@@ -60,37 +64,28 @@ function VendorForm({ vendor, onSuccess }: { vendor?: VendorWithDetails; onSucce
     },
   });
 
-  const createMutation = useMutation({
-    mutationFn: (data: InsertVendor) =>
-      apiRequest(
-        isEdit ? "PATCH" : "POST",
-        isEdit ? `/api/vendors/${vendor!.id}` : "/api/vendors",
-        data
-      ).then(res => res.json()),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/vendors"] });
-      toast({
-        title: `Vendor ${isEdit ? "updated" : "created"} successfully`,
-        description: `${form.getValues("name")} has been ${isEdit ? "updated" : "added"} to the system.`,
+  const onSubmit = (data: CreateVendor) => {
+    if(isEdit){
+      updateMutation.mutate({
+        id: vendor?.id || "",
+        ...data,
+      },{
+        onSuccess: () => {
+          setIsCreateOpen(false);
+        }
       });
-      onSuccess();
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || `Failed to ${isEdit ? "update" : "create"} vendor`,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const onSubmit = (data: InsertVendor) => {
-    createMutation.mutate(data);
-  };
+    }else{
+    createMutation.mutate(data,{
+      onSuccess: () => {
+        setIsCreateOpen(false);
+      }
+    });
+  }
+}
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto">
         <FormField
           control={form.control}
           name="name"
@@ -190,6 +185,24 @@ function VendorForm({ vendor, onSuccess }: { vendor?: VendorWithDetails; onSucce
             />
             <FormField
               control={form.control}
+              name="address.country"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Country</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="India" 
+                      {...field}
+                      value={field.value || ""}
+                      data-testid="input-vendor-country"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="address.city"
               render={({ field }) => (
                 <FormItem>
@@ -250,7 +263,7 @@ function VendorForm({ vendor, onSuccess }: { vendor?: VendorWithDetails; onSucce
           disabled={createMutation.isPending}
           data-testid={`button-${isEdit ? 'update' : 'create'}-vendor`}
         >
-          {createMutation.isPending ? "Saving..." : isEdit ? "Update Vendor" : "Create Vendor"}
+          {createMutation.isPending ? "Saving..." : isEdit ? "Update Vendor" : "Create Vendor"}   
         </Button>
       </form>
     </Form>
@@ -295,7 +308,7 @@ function VendorCard({ vendor }: { vendor: VendorWithDetails }) {
               </DialogHeader>
               <VendorForm 
                 vendor={vendor} 
-                onSuccess={() => setIsEditOpen(false)} 
+                setIsCreateOpen={setIsEditOpen}
               />
             </DialogContent>
           </Dialog>
@@ -345,11 +358,11 @@ export default function VendorsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
-  const { data: vendors = [], isLoading } = useQuery<VendorWithDetails[]>({
-    queryKey: ["/api/vendors"],
-  });
+  const { isLoading } = useVendors();
+  const state = useSelector((state: RootState) => state.manufacturing.vendorResponse);
+  const vendors = Array.isArray(state?.data) ? state.data : [];
 
-  const filteredVendors = vendors.filter((vendor: VendorWithDetails) =>
+  const filteredVendors = vendors?.filter((vendor: Vendor) =>
     vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     vendor.contactEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     vendor.gstin?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -400,7 +413,7 @@ export default function VendorsPage() {
             <DialogHeader>
               <DialogTitle>Add New Vendor</DialogTitle>
             </DialogHeader>
-            <VendorForm onSuccess={() => setIsCreateOpen(false)} />
+            <VendorForm setIsCreateOpen={setIsCreateOpen}  />
           </DialogContent>
         </Dialog>
       </div>
@@ -441,7 +454,7 @@ export default function VendorsPage() {
                   <DialogHeader>
                     <DialogTitle>Add New Vendor</DialogTitle>
                   </DialogHeader>
-                  <VendorForm onSuccess={() => setIsCreateOpen(false)} />
+                  <VendorForm setIsCreateOpen={setIsCreateOpen}    />
                 </DialogContent>
               </Dialog>
             )}

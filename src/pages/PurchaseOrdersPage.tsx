@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import DataTable from "@/components/DataTable";
 import StatusBadge from "@/components/StatusBadge";
@@ -12,23 +11,25 @@ import { Plus, Eye, Edit, Trash2 } from "lucide-react";
 import { formatINR } from "@/lib/currency";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/store/store";
+import { usePurchaseOrders, useCreatePurchaseOrder, useUpdatePurchaseOrder } from "@/hooks/usePurchaseOrder";
+import FormattedDate from "@/lib/formatDate";
 
 const insertPurchaseOrderSchema = z.object({
-  poNo: z.string().min(1, "PO Number is required"),
-  vendorId: z.string().uuid("Invalid vendor ID"),
+  po_no: z.string().min(1, "PO Number is required"),
+  vendor_id: z.string().uuid("Invalid vendor ID"),
   status: z.enum(["draft", "submitted", "approved", "partially_received", "closed"]).optional(),
-  totalValue: z.number().min(0, "Total value cannot be negative").optional(),
-  expectedDelivery: z.string().optional(), // ISO date string from form
+  total_value: z.number().min(0, "Total value cannot be negative").optional(),
+  expected_delivery: z.string().optional(), // ISO date string from form
 });
 
 // Schema for purchase order item
 const insertPurchaseOrderItemSchema = z.object({
   rawMaterialId: z.string().min(1, "Material is required"),
-  qty: z.number().positive("Quantity must be greater than 0"),
-  rate: z.number().min(0, "Rate cannot be negative"),
+  qty: z.coerce.number().positive("Quantity must be greater than 0"),
+  rate: z.coerce.number().min(0, "Rate cannot be negative"),
   uom: z.string().optional(),
   tempId: z.string().optional(), // Temporary field for frontend management
 });
@@ -42,48 +43,12 @@ const createPurchaseOrderFormSchema = z.object({
 
 export type CreatePurchaseOrderFormData = z.infer<typeof createPurchaseOrderFormSchema>;
 
-const purchaseOrderColumns = [
-  { key: "poNo", header: "PO Number", sortable: true },
-  { key: "vendorName", header: "Vendor", sortable: true },
-  { 
-    key: "status", 
-    header: "Status", 
-    sortable: true,
-    render: (status: string) => <StatusBadge status={status as any} size="sm" />
-  },
-  { 
-    key: "totalValue", 
-    header: "Total Value", 
-    sortable: true,
-    render: (value: any) => formatINR(String(value ?? 0))
-  },
-  { key: "expectedDelivery", header: "Expected Delivery", sortable: true },
-  { 
-    key: "createdAt", 
-    header: "Created Date", 
-    sortable: true,
-    render: (date: string) => new Date(date).toLocaleDateString('en-IN')
-  },
-  {
-    key: "actions",
-    header: "Actions",
-    render: (_value: any, row: any) => (
-      <div className="flex gap-1">
-        <Button variant="outline" size="sm" data-testid={`button-view-${row.id}`}>
-          <Eye className="h-3 w-3" />
-        </Button>
-        <Button variant="outline" size="sm" data-testid={`button-edit-${row.id}`}>
-          <Edit className="h-3 w-3" />
-        </Button>
-      </div>
-    )
-  },
-];
+// Columns for items kept outside; order columns will be defined inside component where handlers are accessible
 
 const purchaseOrderItemColumns = [
-  { key: "poNo", header: "PO Number", sortable: true },
-  { key: "materialCode", header: "Material Code", sortable: true },
-  { key: "materialName", header: "Material Name", sortable: true },
+  { key: "po_no", header: "PO Number", sortable: true },
+  { key: "material_code", header: "Material Code", sortable: true },
+  { key: "material_name", header: "Material Name", sortable: true },
   { 
     key: "qty", 
     header: "Ordered Qty", 
@@ -97,7 +62,7 @@ const purchaseOrderItemColumns = [
     render: (rate: any) => rate != null ? formatINR(String(rate)) : '-'
   },
   { 
-    key: "receivedQty", 
+    key: "received_qty", 
     header: "Received Qty", 
     sortable: true,
     render: (qty: number, row: any) => `${qty} ${row.uom || ''}`
@@ -111,25 +76,24 @@ const purchaseOrderItemColumns = [
       const rate = Number(row.rate ?? 0);
       return formatINR(String(qty * rate));
     }
-  },
+  }
 ];
 
 export default function PurchaseOrdersPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"orders" | "items">("orders");
-  const { toast } = useToast();
+  const [page, setPage] = useState(1);
+  const rowsPerPage = 5;
+  const state = useSelector((state: RootState) => state.manufacturing);
+  const vendorResponse = state?.vendorResponse?.data;
+  const rawMaterialResponse = state?.rawMaterialResponse?.data;
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedPO, setSelectedPO] = useState<any | null>(null);
+  const [newStatus, setNewStatus] = useState<string>("");
 
-  const { data: purchaseOrders = [] } = useQuery<any[]>({
-    queryKey: ["/api/purchase-orders"],
-  });
-
-  const { data: vendors = [] } = useQuery<any[]>({
-    queryKey: ["/api/vendors"],
-  });
-
-  const { data: materials = [] } = useQuery<any[]>({
-    queryKey: ["/api/raw-materials"],
-  });
+  const { data: purchaseOrdersResponse, refetch } = usePurchaseOrders({ page, limit: rowsPerPage });
+  const purchaseOrders = Array.isArray(purchaseOrdersResponse?.data) ? purchaseOrdersResponse?.data : [];
+  const totalRecords = purchaseOrdersResponse?.total ?? 0;
 
   // Generate unique PO number
   const generatePONumber = () => {
@@ -140,14 +104,14 @@ export default function PurchaseOrdersPage() {
     return `PO${year}${month}${seq}`;
   };
 
-  const form = useForm<CreatePurchaseOrderFormData>({
+  const form = useForm({
     resolver: zodResolver(createPurchaseOrderFormSchema),
     defaultValues: {
       purchaseOrder: {
-        poNo: generatePONumber(),
-        vendorId: "",
-        totalValue: 0,
-        expectedDelivery: "",
+        po_no: generatePONumber(),
+        vendor_id: "",
+        total_value: 0,
+        expected_delivery: "",
       },
       items: [{
         rawMaterialId: "",
@@ -173,94 +137,110 @@ export default function PurchaseOrdersPage() {
       const rate = Number(item.rate || 0);
       return sum + (qty * rate);
     }, 0);
-    form.setValue("purchaseOrder.totalValue", total);
+    form.setValue("purchaseOrder.total_value", total);
     return total;
   };
 
-  const createMutation = useMutation({
-    mutationFn: async (data: CreatePurchaseOrderFormData) => {
-      console.log("Submitting PO data:", data);
-      
-      // Get users to find a valid user ID
-      const usersResponse = await apiRequest("GET", "/api/users").then(res => res.json());
-      console.log("Users response:", usersResponse);
-      
-      if (!usersResponse || usersResponse.length === 0) {
-        throw new Error("No users found in the system");
+  const createMutation = useCreatePurchaseOrder();
+  const statusUpdateMutation = useUpdatePurchaseOrder();
+
+  const onSubmit = (data: any) => {
+    // Shape payload according to PurchaseOrder type used by useCreatePurchaseOrder
+    const cleanedItems = (data.items as any[]).map(({ tempId, ...item }) => ({
+      raw_material_id: item.rawMaterialId,
+      qty: Number(item.qty || 0),
+      uom: item.uom || "",
+      rate: Number(item.rate || 0),
+    }));
+
+    const payload = {
+      po_no: data.purchaseOrder.po_no,
+      vendor_id: data.purchaseOrder.vendor_id,
+      expected_delivery: data.purchaseOrder.expected_delivery || "",
+      items: cleanedItems,
+    };
+
+    createMutation.mutate(payload as any, {
+      onSuccess: () => {
+        setIsCreateDialogOpen(false);
+        form.reset({
+          purchaseOrder: {
+            po_no: generatePONumber(),
+            vendor_id: "",
+            total_value: 0,
+            expected_delivery: "",
+          },
+          items: [{
+            rawMaterialId: "",
+            qty: 0,
+            uom: "",
+            rate: 0,
+            tempId: crypto.randomUUID(),
+          }]
+        });
+        setIsCreateDialogOpen(false);
       }
-      
-      const firstUserId = usersResponse[0].id;
-      console.log("Using user ID:", firstUserId);
-      
-      const cleanedItems = data.items.map(({ tempId, ...item }) => item);
-      // Add createdBy field with dynamic user ID
-      const purchaseOrderData = {
-        ...data.purchaseOrder,
-        createdBy: firstUserId
-      };
-      
-      const payload = {
-        purchaseOrder: purchaseOrderData,
-        items: cleanedItems
-      };
-      
-      console.log("Final payload:", payload);
-      return apiRequest("POST", "/api/purchase-orders", payload).then(res => res.json());
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
-      toast({
-        title: "Purchase Order created successfully",
-        description: "The purchase order has been created and can now be processed.",
-      });
-      setIsCreateDialogOpen(false);
-      form.reset({
-        purchaseOrder: {
-          poNo: generatePONumber(),
-          vendorId: "",
-          totalValue: 0,
-          expectedDelivery: "",
-        },
-        items: [{
-          rawMaterialId: "",
-          qty: 0,
-          uom: "",
-          rate: 0,
-          tempId: crypto.randomUUID(),
-        }]
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error creating purchase order",
-        description: error?.message || "Failed to create purchase order. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const onSubmit = (data: CreatePurchaseOrderFormData) => {
-    console.log("Form submitted!", data);
-    createMutation.mutate(data);
-  };
-
-  const onError = (errors: any) => {
-    console.log("Form validation errors:", errors);
-    toast({
-      title: "Form validation failed",
-      description: "Please check all required fields and try again.",
-      variant: "destructive",
     });
   };
 
   // Enrich purchase orders with vendor names
   const enrichedOrders = purchaseOrders.map((po: any) => {
-    const vendor = vendors.find((v: any) => v.id === po.vendorId);
+    const vendor = vendorResponse?.find((v: any) => v.id === po.vendorId);
     return {
       ...po,
       vendorName: vendor?.name || 'Unknown Vendor'
     };
   });
+
+  const handleUpdateStatus = (rowData: any) => {
+    setSelectedPO(rowData);
+    setNewStatus(rowData.status);
+    setIsEditDialogOpen(true);
+  };
+
+  const purchaseOrderColumns = [
+    { key: "po_no", header: "PO Number", sortable: true },
+    { key: "vendor_name", header: "Vendor", sortable: true },
+    { 
+      key: "status", 
+      header: "Status", 
+      sortable: true,
+      render: (status: string) => <StatusBadge status={status as any} size="sm" />
+    },
+    { 
+      key: "total_value", 
+      header: "Total Value", 
+      sortable: true,
+      render: (value: any) => formatINR(String(value ?? 0))
+    },
+    { key: "expected_delivery", header: "Expected Delivery", sortable: true, render: (date: string) => <FormattedDate date={date} /> },
+    { 
+      key: "created_at", 
+      header: "Created Date", 
+      sortable: true,
+      render: (date: string) => <FormattedDate date={date} />
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      render: (_value: any, row: any) => (
+        <div className="flex gap-1">
+          <Button variant="outline" size="sm" data-testid={`button-view-${row.id}`}>
+            <Eye className="h-3 w-3" />
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            data-testid={`button-edit-${row.id}`} 
+            title="Update Status"
+            onClick={() => handleUpdateStatus(row)}
+          >
+            <Edit className="h-3 w-3" />
+          </Button>
+        </div>
+      )
+    },
+  ];
 
   // Get all purchase order items with enriched data
   const allPOItems: any[] = [];
@@ -310,12 +290,12 @@ export default function PurchaseOrdersPage() {
                   <DialogTitle>Create New Purchase Order</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit, onError)} className="space-y-6">
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                     {/* Header Details */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg">
                       <FormField
                         control={form.control}
-                        name="purchaseOrder.poNo"
+                        name="purchaseOrder.po_no"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>PO Number*</FormLabel>
@@ -323,7 +303,6 @@ export default function PurchaseOrdersPage() {
                               <Input 
                                 {...field}
                                 placeholder="Auto-generated"
-                                readOnly
                                 data-testid="input-po-number"
                               />
                             </FormControl>
@@ -334,7 +313,7 @@ export default function PurchaseOrdersPage() {
 
                       <FormField
                         control={form.control}
-                        name="purchaseOrder.vendorId"
+                        name="purchaseOrder.vendor_id"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Vendor*</FormLabel>
@@ -345,7 +324,7 @@ export default function PurchaseOrdersPage() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                {vendors.map((vendor) => (
+                                {vendorResponse?.map((vendor) => (
                                   <SelectItem key={vendor.id} value={vendor.id}>
                                     {vendor.name}
                                   </SelectItem>
@@ -359,7 +338,7 @@ export default function PurchaseOrdersPage() {
 
                       <FormField
                         control={form.control}
-                        name="purchaseOrder.expectedDelivery"
+                        name="purchaseOrder.expected_delivery"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Expected Delivery</FormLabel>
@@ -416,7 +395,7 @@ export default function PurchaseOrdersPage() {
                           </TableHeader>
                           <TableBody>
                             {fields.map((field, index) => {
-                              const selectedMaterial = materials.find(m => m.id === watchedItems[index]?.rawMaterialId);
+                              const selectedMaterial = rawMaterialResponse?.find((m: any) => m.id === watchedItems[index]?.rawMaterialId);
                               const qty = Number(watchedItems[index]?.qty || 0);
                               const rate = Number(watchedItems[index]?.rate || 0);
                               const amount = qty * rate;
@@ -432,7 +411,7 @@ export default function PurchaseOrdersPage() {
                                           <Select 
                                             onValueChange={(value) => {
                                               field.onChange(value);
-                                              const material = materials.find(m => m.id === value);
+                                              const material = rawMaterialResponse?.find((m: any) => m.id === value);
                                               if (material) {
                                                 form.setValue(`items.${index}.uom`, material.uom);
                                               }
@@ -445,7 +424,7 @@ export default function PurchaseOrdersPage() {
                                               </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                              {materials.map((material) => (
+                                              {rawMaterialResponse?.map((material: any) => (
                                                 <SelectItem key={material.id} value={material.id}>
                                                   {material.code} - {material.name}
                                                 </SelectItem>
@@ -470,7 +449,7 @@ export default function PurchaseOrdersPage() {
                                               min="0"
                                               step="0.01"
                                               placeholder="0"
-                                              value={field.value ?? ""}
+                                              value={typeof field.value === "number" ? field.value : (field.value as any) || ""}
                                               onChange={(e) => {
                                                 const val = e.target.value;
                                                 field.onChange(val === "" ? 0 : parseFloat(val));
@@ -480,6 +459,7 @@ export default function PurchaseOrdersPage() {
                                               name={field.name}
                                               ref={field.ref}
                                               data-testid={`input-qty-${index}`}
+                                              onWheel={(e) => e.currentTarget.blur()}
                                             />
                                           </FormControl>
                                           <FormMessage />
@@ -524,15 +504,17 @@ export default function PurchaseOrdersPage() {
                                               min="0"
                                               step="0.01"
                                               placeholder="0.00"
-                                              value={field.value || ""}
+                                              value={typeof field.value === "string" ? parseFloat(field.value) : (typeof field.value === "number" ? field.value : (field.value as any) || "")}
                                               onChange={(e) => {
-                                                field.onChange(e.target.value);
+                                                const val = e.target.value;
+                                                field.onChange(val === "" ? 0 : parseFloat(val));
                                                 setTimeout(calculateTotal, 0);
                                               }}
-                                              onBlur={field.onBlur}
+                                            
                                               name={field.name}
                                               ref={field.ref}
                                               data-testid={`input-rate-${index}`}
+                                              onWheel={(e) => e.currentTarget.blur()}
                                             />
                                           </FormControl>
                                           <FormMessage />
@@ -620,6 +602,14 @@ export default function PurchaseOrdersPage() {
           data={enrichedOrders}
           searchable={true}
           exportable={true}
+          pagination={true}
+          rowsPerPage={rowsPerPage}
+          totalRecords={totalRecords}
+          currentPage={page}
+          onPageChange={(newPage) => {
+            setPage(newPage);
+            refetch();
+          }}
         />
       )}
 
@@ -632,6 +622,65 @@ export default function PurchaseOrdersPage() {
           exportable={true}
         />
       )}
+
+      {/* Edit Status Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update Status - {selectedPO?.po_no}</DialogTitle>
+          </DialogHeader>
+          {selectedPO && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Current Status: <StatusBadge status={selectedPO.status || "draft"} size="sm" />
+                </p>
+                <div>
+                  <label htmlFor="status" className="text-sm font-medium">
+                    New Status
+                  </label>
+                  <Select value={newStatus} onValueChange={setNewStatus}>
+                    <SelectTrigger data-testid="select-status">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="submitted">Submitted</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="partially_received">Partially Received</SelectItem>
+                      <SelectItem value="closed">Closed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditDialogOpen(false)}
+                  disabled={statusUpdateMutation.isPending}
+                  data-testid="button-cancel-status"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => statusUpdateMutation.mutate({ id: selectedPO.id, status: newStatus },
+                    {
+                      onSuccess: () => {
+                        setIsEditDialogOpen(false);
+                      },
+                    }
+                  )}
+                  disabled={statusUpdateMutation.isPending || newStatus === selectedPO.status}
+                  data-testid="button-save-status"
+                >
+                  {statusUpdateMutation.isPending ? "Updating..." : "Update Status"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
