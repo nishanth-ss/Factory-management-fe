@@ -1,58 +1,81 @@
+// src/lib/queryClient.ts
+import axios, { type AxiosRequestConfig, type InternalAxiosRequestConfig } from "axios";
 import { QueryClient, type QueryFunction } from "@tanstack/react-query";
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-async function throwIfResNotOk(res: Response) {
-  if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+const API_BASE = import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "http://localhost:5000";
+
+const axiosInstance = axios.create({
+  baseURL: API_BASE,
+  headers: { "Content-Type": "application/json" },
+});
+
+// Attach token to all requests except login
+axiosInstance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  if (config.url !== "/auth/login") {
+    const token = localStorage.getItem("authToken"); // or from Redux
+    if (token) {
+      if (config.headers) {
+        config.headers.set?.("Authorization", `Bearer ${token}`); // use set() for AxiosHeaders
+      }
+    }
+  }
+  return config;
+});
+
+
+// Centralized error handler
+async function handleAxiosError(error: unknown): Promise<never> {
+  if (axios.isAxiosError(error)) {
+    const status = error.response?.status;
+    if (status === 401 || status === 403) {
+      // Optionally redirect to login
+      window.location.href = "/login";
+      throw new Error("Unauthorized");
+    }
+    throw new Error(`${status}: ${error.response?.statusText || error.message}`);
+  }
+  throw error;
+}
+
+// Generic API request
+export async function apiRequest<T>(
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
+  url: string,
+  data?: unknown,
+  config?: AxiosRequestConfig
+): Promise<T> {
+  try {
+    const response = await axiosInstance.request<T>({ method, url, data, ...(config ?? {}) });
+    return response.data;
+  } catch (error) {
+    await handleAxiosError(error);
+    throw error as unknown as Error;
   }
 }
 
-export async function apiRequest(
-  method: string,
-  url: string,
-  data?: unknown | undefined,
-): Promise<Response> {
-  const res = await fetch(`${API_BASE}${url}`, {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
-
-  await throwIfResNotOk(res);
-  return res;
+// TanStack Query generic function
+export function getQueryFn<T>(): QueryFunction<T> {
+  return async ({ queryKey }) => {
+    try {
+      const url = queryKey.join("/").replace(/^\/+/, "");
+      const response = await axiosInstance.get<T>(`/${url}`);
+      return response.data;
+    } catch (error) {
+      await handleAxiosError(error);
+      throw error as unknown as Error;
+    }
+  };
 }
 
-type UnauthorizedBehavior = "returnNull" | "throw";
-export const getQueryFn: <T>(options: {
-  on401: UnauthorizedBehavior;
-}) => QueryFunction<T> =
-  ({ on401: unauthorizedBehavior }) =>
-  async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
-      credentials: "include",
-    });
-
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
-    }
-
-    await throwIfResNotOk(res);
-    return await res.json();
-  };
-
+// React Query client
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      queryFn: getQueryFn({ on401: "throw" }),
-      refetchInterval: false,
+      queryFn: getQueryFn(),
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
+      staleTime: 1000 * 60 * 5,
       retry: false,
     },
-    mutations: {
-      retry: false,
-    },
+    mutations: { retry: false },
   },
 });

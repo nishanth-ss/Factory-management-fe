@@ -9,52 +9,48 @@ import { Plus, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-
-// TODO: remove mock functionality
-const mockMaterials = [
-  { id: "1", name: "Steel Sheet", code: "STL-001", uom: "KG" },
-  { id: "2", name: "Aluminum Rod", code: "ALU-002", uom: "PCS" },
-  { id: "3", name: "Copper Wire", code: "COP-003", uom: "MTR" },
-];
+import { useCreateIndent } from "@/hooks/useIndent";
+import type { RootState } from "@/store/store";
+import { useSelector } from "react-redux";
 
 const indentSchema = z.object({
-  indentNo: z.string().min(1, "Indent number is required"),
-  requiredBy: z.string().min(1, "Required by date is required"),
+  indent_no: z.string().min(1, "Indent number is required"),
+  required_by: z.string().min(1, "Required by date is required"),
   priority: z.enum(["low", "medium", "high"]),
   notes: z.string().optional(),
   items: z.array(z.object({
-    materialId: z.string().min(1, "Material is required"),
+    raw_material_id: z.string().min(1, "Material is required"),
     qty: z.number().min(0.01, "Quantity must be greater than 0"),
     uom: z.string().min(1, "Unit is required"),
     notes: z.string().optional(),
   })).min(1, "At least one item is required"),
+  status: z.enum(["draft", "submitted", "approved", "rejected", "in-progress", "in_process", "completed", "planned", "qc", "released", "closed"]),
 });
 
 type IndentFormData = z.infer<typeof indentSchema>;
 
-interface IndentFormProps {
-  onSubmit?: (data: IndentFormData) => void;
-  onDraft?: (data: IndentFormData) => void;
-}
-
-export default function IndentForm({ onSubmit, onDraft }: IndentFormProps) {
-  const [items, setItems] = useState([{ id: 1, materialId: "", qty: 0, uom: "", notes: "" }]);
+export default function IndentForm({ setIsCreateDialogOpen }: { setIsCreateDialogOpen: (value: boolean) => void }) {
+  const [items, setItems] = useState([{ id: 1, raw_material_id: "", qty: 0, uom: "", notes: "" }]);
+  const createIndent = useCreateIndent();
+  const { rawMaterialResponse } = useSelector((state: RootState) => state.manufacturing);
+  const materials = rawMaterialResponse?.data || [];
 
   const form = useForm<IndentFormData>({
     resolver: zodResolver(indentSchema),
     defaultValues: {
-      indentNo: "",
-      requiredBy: "",
+      indent_no: "",
+      required_by: "",
       priority: "medium",
       notes: "",
-      items: [{ materialId: "", qty: 0, uom: "", notes: "" }],
+      items: [{ raw_material_id: "", qty: 0, uom: "", notes: "" }],
+      status: "draft",
     },
   });
 
   const addItem = () => {
-    const newItem = { id: Date.now(), materialId: "", qty: 0, uom: "", notes: "" };
+    const newItem = { id: Date.now(), raw_material_id: "", qty: 0, uom: "", notes: "" };
     setItems([...items, newItem]);
-    form.setValue("items", [...form.getValues("items"), { materialId: "", qty: 0, uom: "", notes: "" }]);
+    form.setValue("items", [...form.getValues("items"), { raw_material_id: "", qty: 0, uom: "", notes: "" }]);
   };
 
   const removeItem = (index: number) => {
@@ -67,14 +63,21 @@ export default function IndentForm({ onSubmit, onDraft }: IndentFormProps) {
   };
 
   const handleSubmit = (data: IndentFormData) => {
-    console.log("Indent submitted:", data);
-    onSubmit?.(data);
+    createIndent.mutate({ ...data, status: "approved" }, {
+      onSuccess: () => {
+        form.reset();
+        setIsCreateDialogOpen(false);
+      },
+    });
   };
 
-  const handleDraft = () => {
-    const data = form.getValues();
-    console.log("Indent saved as draft:", data);
-    onDraft?.(data);
+  const handleDraft = (data: IndentFormData) => {
+    createIndent.mutate({ ...data, status: "draft" }, {
+      onSuccess: () => {
+        form.reset();
+        setIsCreateDialogOpen(false);
+      },
+    });
   };
 
   return (
@@ -85,10 +88,10 @@ export default function IndentForm({ onSubmit, onDraft }: IndentFormProps) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <FormField
                 control={form.control}
-                name="indentNo"
+                name="indent_no"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Indent Number</FormLabel>
+                    <FormLabel className="block pb-1">Indent Number</FormLabel>
                     <FormControl>
                       <Input {...field} placeholder="IND-001" data-testid="input-indent-no" />
                     </FormControl>
@@ -96,13 +99,13 @@ export default function IndentForm({ onSubmit, onDraft }: IndentFormProps) {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
-                name="requiredBy"
+                name="required_by"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Required By</FormLabel>
+                    <FormLabel className="block pb-1">Required By</FormLabel>
                     <FormControl>
                       <Input {...field} type="date" data-testid="input-required-by" />
                     </FormControl>
@@ -116,7 +119,7 @@ export default function IndentForm({ onSubmit, onDraft }: IndentFormProps) {
                 name="priority"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Priority</FormLabel>
+                    <FormLabel className="block pb-1">Priority</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger data-testid="select-priority">
@@ -138,10 +141,10 @@ export default function IndentForm({ onSubmit, onDraft }: IndentFormProps) {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-medium">Materials Required</h3>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={addItem}
                   data-testid="button-add-item"
                 >
@@ -151,13 +154,13 @@ export default function IndentForm({ onSubmit, onDraft }: IndentFormProps) {
               </div>
 
               {items.map((item, index) => (
-                <div key={item.id} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-md">
+                <div key={item.id} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-md items-center">
                   <FormField
                     control={form.control}
-                    name={`items.${index}.materialId`}
+                    name={`items.${index}.raw_material_id`}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Material</FormLabel>
+                        <FormLabel className="block pb-1">Material</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger data-testid={`select-material-${index}`}>
@@ -165,7 +168,7 @@ export default function IndentForm({ onSubmit, onDraft }: IndentFormProps) {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {mockMaterials.map((material) => (
+                            {materials?.map((material) => (
                               <SelectItem key={material.id} value={material.id}>
                                 {material.name} ({material.code})
                               </SelectItem>
@@ -182,15 +185,20 @@ export default function IndentForm({ onSubmit, onDraft }: IndentFormProps) {
                     name={`items.${index}.qty`}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Quantity</FormLabel>
+                        <FormLabel className="block pb-1">Quantity</FormLabel>
                         <FormControl>
-                          <Input 
-                            {...field} 
-                            type="number" 
-                            min="0" 
+                          <Input
+                            {...field}
+                            type="number"
+                            min="0"
                             step="0.01"
-                            onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                            value={field.value ?? ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              field.onChange(val === "" ? "" : parseFloat(val));
+                            }}
                             data-testid={`input-qty-${index}`}
+                            onWheel={(e) => e.currentTarget.blur()}
                           />
                         </FormControl>
                         <FormMessage />
@@ -198,12 +206,13 @@ export default function IndentForm({ onSubmit, onDraft }: IndentFormProps) {
                     )}
                   />
 
+
                   <FormField
                     control={form.control}
                     name={`items.${index}.uom`}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Unit</FormLabel>
+                        <FormLabel className="block pb-1">Unit</FormLabel>
                         <FormControl>
                           <Input {...field} placeholder="KG" data-testid={`input-uom-${index}`} />
                         </FormControl>
@@ -217,7 +226,7 @@ export default function IndentForm({ onSubmit, onDraft }: IndentFormProps) {
                     name={`items.${index}.notes`}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Notes</FormLabel>
+                        <FormLabel className="block pb-1">Notes</FormLabel>
                         <FormControl>
                           <Input {...field} placeholder="Optional notes" data-testid={`input-notes-${index}`} />
                         </FormControl>
@@ -226,7 +235,7 @@ export default function IndentForm({ onSubmit, onDraft }: IndentFormProps) {
                     )}
                   />
 
-                  <div className="flex items-end">
+                  <div className="flex items-end mt-4">
                     <Button
                       type="button"
                       variant="outline"
@@ -247,7 +256,7 @@ export default function IndentForm({ onSubmit, onDraft }: IndentFormProps) {
               name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Additional Notes</FormLabel>
+                  <FormLabel className="block pb-1">Additional Notes</FormLabel>
                   <FormControl>
                     <Textarea {...field} placeholder="Any additional requirements or notes..." data-testid="textarea-notes" />
                   </FormControl>
@@ -257,10 +266,10 @@ export default function IndentForm({ onSubmit, onDraft }: IndentFormProps) {
             />
 
             <div className="flex gap-2 justify-end">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={handleDraft}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleDraft(form.getValues())}
                 data-testid="button-save-draft"
               >
                 Save as Draft
