@@ -191,7 +191,7 @@ export default function IndentsPage() {
         search={search}
         onSearch={(term) => {
           setSearch(term);
-          setPage(1); // already handled by DataTable, but safe if you call here instead
+          setPage(1); 
         }}
       />
 

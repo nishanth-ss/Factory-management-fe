@@ -20,7 +20,8 @@ import {
   IndianRupee, 
   BarChart3,
   Users,
-  Settings 
+  Settings, 
+  LogOut
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
@@ -78,6 +79,16 @@ const adminItems = [
     url: "/settings",
     icon: Settings,
   },
+  {
+    title: "Users",
+    url: "/users",
+    icon: Users,
+  },
+  {
+    title: "Logout",
+    url: "/logout",
+    icon: LogOut,
+  }
 ];
 
 export default function AppSidebar() {
