@@ -1,4 +1,3 @@
-import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient.ts";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -7,6 +6,8 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import AppSidebar from "@/components/AppSidebar";
 import LoginForm from "@/components/LoginForm";
+import { Switch, Route } from "wouter";
+import RoleRoute from "@/roues-guard/RoleRoute";
 import DashboardPage from "@/pages/DashboardPage";
 import IndentsPage from "@/pages/IndentsPage";
 import RawMaterialsPage from "@/pages/RawMaterialsPage";
@@ -18,11 +19,13 @@ import ExpenditurePage from "@/pages/ExpenditurePage";
 import ReportsPage from "@/pages/ReportsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/not-found";
-import UsersPage from "./pages/UsersPage.tsx";
+import UsersPage from "@/pages/UsersPage";
+import NotAuthorized from "@/pages/NotAuthorized";
 
 function Router() {
   return (
     <Switch>
+      {/* Public / authenticated routes available to all logged-in roles */}
       <Route path="/" component={DashboardPage} />
       <Route path="/indents" component={IndentsPage} />
       <Route path="/materials" component={RawMaterialsPage} />
@@ -32,9 +35,14 @@ function Router() {
       <Route path="/expenditure" component={ExpenditurePage} />
       <Route path="/reports" component={ReportsPage} />
       <Route path="/vendors" component={VendorsPage} />
+
+      {/* Admin-only routes (roleId = 1) */}
       <Route path="/settings" component={SettingsPage} />
-      <Route path="/users" component={UsersPage} />
+      <RoleRoute path="/users" component={UsersPage} allowedRoles={[1]} />
       <Route path="/users/:id" component={UsersPage} />
+
+      {/* Not authorized & fallback */}
+      <Route path="/not-authorized" component={NotAuthorized} />
       <Route component={NotFound} />
     </Switch>
   );
