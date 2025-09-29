@@ -24,75 +24,35 @@ import {
   LogOut
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
+import { useAuth } from "@/contexts/AuthContext";
 
+// Navigation items visible to all roles
 const navigationItems = [
-  {
-    title: "Dashboard",
-    url: "/",
-    icon: Home,
-  },
-  {
-    title: "Raw Materials",
-    url: "/materials",
-    icon: Package,
-  },
-  {
-    title: "Indents",
-    url: "/indents",
-    icon: FileText,
-  },
-  {
-    title: "Purchase Orders",
-    url: "/purchase-orders",
-    icon: ShoppingCart,
-  },
-  {
-    title: "GRN",
-    url: "/grn",
-    icon: Truck,
-  },
-  {
-    title: "Production",
-    url: "/production",
-    icon: Factory,
-  },
-  {
-    title: "Expenditure",
-    url: "/expenditure",
-    icon: IndianRupee,
-  },
-  {
-    title: "Reports",
-    url: "/reports",
-    icon: BarChart3,
-  },
+  { title: "Dashboard", url: "/", icon: Home },
+  { title: "Raw Materials", url: "/materials", icon: Package },
+  { title: "Indents", url: "/indents", icon: FileText },
+  { title: "Purchase Orders", url: "/purchase-orders", icon: ShoppingCart },
+  { title: "GRN", url: "/grn", icon: Truck },
+  { title: "Production", url: "/production", icon: Factory },
+  { title: "Expenditure", url: "/expenditure", icon: IndianRupee },
+  { title: "Reports", url: "/reports", icon: BarChart3 },
 ];
 
+// Admin / special menu items
 const adminItems = [
-  {
-    title: "Vendors",
-    url: "/vendors",
-    icon: Users,
-  },
-  {
-    title: "Settings",
-    url: "/settings",
-    icon: Settings,
-  },
-  {
-    title: "Users",
-    url: "/users",
-    icon: Users,
-  },
-  {
-    title: "Logout",
-    url: "/logout",
-    icon: LogOut,
-  }
+  { title: "Vendors", url: "/vendors", icon: Users },
+  { title: "Settings", url: "/settings", icon: Settings },
+  { title: "Users", url: "/users", icon: Users, allow: 1 }, 
+  { title: "Logout", url: "/logout", icon: LogOut },
 ];
 
 export default function AppSidebar() {
   const [location] = useLocation();
+  const { user } = useAuth();
+
+  // derive roleId from user object
+  const roleString = (user?.role || "").toLowerCase();
+  const roleId = roleString === "admin" ? 1 : 2;
 
   return (
     <Sidebar data-testid="sidebar-main">
@@ -107,8 +67,9 @@ export default function AppSidebar() {
           </div>
         </div>
       </SidebarHeader>
-      
+
       <SidebarContent>
+        {/* Main menu */}
         <SidebarGroup>
           <SidebarGroupLabel>Main Menu</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -116,7 +77,7 @@ export default function AppSidebar() {
               {navigationItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
-                    asChild 
+                    asChild
                     isActive={location === item.url}
                     data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
                   >
@@ -131,24 +92,30 @@ export default function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {/* Administration menu */}
         <SidebarGroup>
           <SidebarGroupLabel>Administration</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {adminItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={location === item.url}
-                    data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
-                  >
-                    <Link href={item.url}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {adminItems.map((item) => {
+                // Hide items that have 'allow' and the role doesn't match
+                if (item.allow && item.allow !== roleId) return null;
+
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton 
+                      asChild
+                      isActive={location === item.url}
+                      data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+                    >
+                      <Link href={item.url}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -156,7 +123,7 @@ export default function AppSidebar() {
 
       <SidebarFooter className="p-4">
         <div className="text-xs text-muted-foreground">
-          User: Admin
+          User: {roleId === 1 ? "Admin" : "User"}
           <br />
           Plant: Main Factory
         </div>
