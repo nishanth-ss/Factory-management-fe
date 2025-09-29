@@ -175,7 +175,7 @@ export default function GRNForm({ onSubmit }: GRNFormProps) {
         items: cleanedItems,
       };
 
-      return apiRequest("POST", "/api/grns", payload).then((res) => res.json());
+      return apiRequest("POST", "/api/grns", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/grns"] });
@@ -213,7 +213,7 @@ export default function GRNForm({ onSubmit }: GRNFormProps) {
               <FormItem>
                 <FormLabel>GRN Number*</FormLabel>
                 <FormControl>
-                  <Input {...field} readOnly />
+                  <Input {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

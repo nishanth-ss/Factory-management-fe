@@ -15,6 +15,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import FormattedDate from "@/lib/formatDate";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/store/store";
+import { getRoleIdFromAuth } from "@/lib/utils";
 
 export default function IndentsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -34,6 +35,7 @@ export default function IndentsPage() {
   const indentData = indentState?.data;
   const indent = indentState?.data?.indents || [];
   const updateIndent = useUpdateIndent();
+  const roleId = getRoleIdFromAuth();
 
   useEffect(() => {
     refetch();
@@ -145,6 +147,7 @@ export default function IndentsPage() {
             onClick={() => handleUpdateStatus(row)}
             data-testid={`button-edit-${row.originalId}`}
             title="Update Status"
+            disabled={roleId !== 1}
           >
             <Edit className="h-3 w-3" />
           </Button>
@@ -191,7 +194,7 @@ export default function IndentsPage() {
         search={search}
         onSearch={(term) => {
           setSearch(term);
-          setPage(1); // already handled by DataTable, but safe if you call here instead
+          setPage(1); 
         }}
       />
 

@@ -17,6 +17,7 @@ import type { RootState } from "@/store/store";
 import { usePurchaseOrders, useCreatePurchaseOrder, useUpdatePurchaseOrder } from "@/hooks/usePurchaseOrder";
 import { useDebounce } from "@/hooks/useDebounce";
 import FormattedDate from "@/lib/formatDate";
+import { getRoleIdFromAuth } from "@/lib/utils";
 
 const insertPurchaseOrderSchema = z.object({
   po_no: z.string().min(1, "PO Number is required"),
@@ -146,6 +147,8 @@ export default function PurchaseOrdersPage() {
 
   const createMutation = useCreatePurchaseOrder();
   const statusUpdateMutation = useUpdatePurchaseOrder();
+  const roleId = getRoleIdFromAuth();
+
 
   const onSubmit = (data: any) => {
     // Shape payload according to PurchaseOrder type used by useCreatePurchaseOrder
@@ -237,6 +240,7 @@ export default function PurchaseOrdersPage() {
             data-testid={`button-edit-${row.id}`} 
             title="Update Status"
             onClick={() => handleUpdateStatus(row)}
+            disabled={roleId !== 1}
           >
             <Edit className="h-3 w-3" />
           </Button>

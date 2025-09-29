@@ -4,12 +4,14 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { IndentsApiResponse } from "@/types/indent";
 import type { VendorsApiResponse } from "@/types/vendor";
 import type { PurchaseOrderApiResponse } from "@/types/purchaseType";
+import type { UsersApiResponse } from "@/types/UsersApiResponse";
 
 interface ManufacturingState {
   rawMaterialResponse: RawMaterialsApiResponse | null;
   indentResponse: IndentsApiResponse | null;
   vendorResponse: VendorsApiResponse | null;
   purchaseOrderResponse: PurchaseOrderApiResponse | null;
+  userResponse: UsersApiResponse | null;
 }
 
 const initialState: ManufacturingState = {
@@ -17,6 +19,7 @@ const initialState: ManufacturingState = {
   indentResponse: null,
   vendorResponse: null,
   purchaseOrderResponse: null,
+  userResponse: null,
 };
 
 export const manufacturingSlice = createSlice({
@@ -47,8 +50,14 @@ export const manufacturingSlice = createSlice({
     clearPurchaseOrderResponse: (state) => {
       state.purchaseOrderResponse = null;
     },
+    setUserResponse: (state, action: PayloadAction<UsersApiResponse>) => {
+      state.userResponse = action.payload;
+    },
+    clearUserResponse: (state) => {
+      state.userResponse = null;
+    },
   },
 });
 
-export const { setRawMaterialResponse, clearRawMaterialResponse, setIndentResponse, clearIndentResponse, setVendorResponse, clearVendorResponse, setPurchaseOrderResponse, clearPurchaseOrderResponse } = manufacturingSlice.actions;
+export const { setRawMaterialResponse, clearRawMaterialResponse, setIndentResponse, clearIndentResponse, setVendorResponse, clearVendorResponse, setPurchaseOrderResponse, clearPurchaseOrderResponse, setUserResponse, clearUserResponse } = manufacturingSlice.actions;
 export default manufacturingSlice.reducer;

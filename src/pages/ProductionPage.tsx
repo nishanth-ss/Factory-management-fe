@@ -6,13 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Plus, Eye, Edit, Package, Clock, CheckCircle, AlertTriangle } from "lucide-react";
 import { formatINR } from "@/lib/currency";
 import { format } from "date-fns";
 import ProductionBatchForm from "@/components/ProductionBatchForm";
-import type { ProductionBatch } from "@shared/schema";
 
 // Production batch status configuration
 const statusConfig = {
@@ -72,7 +70,7 @@ export default function ProductionPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   // TODO: Replace with actual API call
-  const { data: batches = [], isLoading } = useQuery({
+  const { data: batches = [] } = useQuery({
     queryKey: ["/api/production-batches", statusFilter, searchTerm],
     queryFn: () => {
       // Simulate API response

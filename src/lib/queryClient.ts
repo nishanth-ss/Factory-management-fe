@@ -32,7 +32,14 @@ async function handleAxiosError(error: unknown): Promise<never> {
       window.location.href = "/login";
       throw new Error("Unauthorized");
     }
-    throw new Error(`${status}: ${error.response?.statusText || error.message}`);
+    // Prefer server-provided message when available
+    const data = error.response?.data as any;
+    const serverMessage =
+      (typeof data === "string" && data) ||
+      (typeof data === "object" && (data?.message || data?.error || data?.detail)) ||
+      undefined;
+
+    throw new Error(serverMessage || `${status}: ${error.response?.statusText || error.message}`);
   }
   throw error;
 }

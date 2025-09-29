@@ -18,6 +18,7 @@ import ExpenditurePage from "@/pages/ExpenditurePage";
 import ReportsPage from "@/pages/ReportsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/not-found";
+import UsersPage from "./pages/UsersPage.tsx";
 
 function Router() {
   return (
@@ -32,6 +33,8 @@ function Router() {
       <Route path="/reports" component={ReportsPage} />
       <Route path="/vendors" component={VendorsPage} />
       <Route path="/settings" component={SettingsPage} />
+      <Route path="/users" component={UsersPage} />
+      <Route path="/users/:id" component={UsersPage} />
       <Route component={NotFound} />
     </Switch>
   );
