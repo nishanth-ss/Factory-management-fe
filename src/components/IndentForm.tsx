@@ -12,6 +12,7 @@ import { z } from "zod";
 import { useCreateIndent } from "@/hooks/useIndent";
 import type { RootState } from "@/store/store";
 import { useSelector } from "react-redux";
+import { getRoleIdFromAuth } from "@/lib/utils";
 
 const indentSchema = z.object({
   indent_no: z.string().min(1, "Indent number is required"),
@@ -63,7 +64,7 @@ export default function IndentForm({ setIsCreateDialogOpen }: { setIsCreateDialo
   };
 
   const handleSubmit = (data: IndentFormData) => {
-    createIndent.mutate({ ...data, status: "approved" }, {
+    createIndent.mutate({ ...data, status: getRoleIdFromAuth() === 1 ? "approved" : "pending" }, {
       onSuccess: () => {
         form.reset();
         setIsCreateDialogOpen(false);
@@ -192,10 +193,11 @@ export default function IndentForm({ setIsCreateDialogOpen }: { setIsCreateDialo
                             type="number"
                             min="0"
                             step="0.01"
-                            value={field.value ?? ""}
+                            value={field.value === 0 || field.value === undefined ? "" : field.value}
+                            placeholder="0"
                             onChange={(e) => {
                               const val = e.target.value;
-                              field.onChange(val === "" ? "" : parseFloat(val));
+                              field.onChange(val === "" ? undefined : parseFloat(val));
                             }}
                             data-testid={`input-qty-${index}`}
                             onWheel={(e) => e.currentTarget.blur()}

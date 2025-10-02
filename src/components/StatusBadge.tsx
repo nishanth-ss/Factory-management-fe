@@ -8,18 +8,19 @@ interface StatusBadgeProps {
 }
 
 const statusConfig: Record<IndentStatus, { status: string; color: string }> = {
-  draft: { status: "Draft", color: "bg-status-draft text-black" },
-  submitted: { status: "Submitted", color: "bg-status-submitted text-black" },
-  approved: { status: "Approved", color: "bg-status-approved text-black" },
-  rejected: { status: "Rejected", color: "bg-status-rejected text-black" },
-  "in-progress": { status: "In Progress", color: "bg-status-in-progress text-black" },
-  "in_process": { status: "In Process", color: "bg-status-in-progress text-black" },
-  completed: { status: "Completed", color: "bg-status-completed text-black" },
-  planned: { status: "Planned", color: "bg-status-draft text-black" },
-  qc: { status: "QC", color: "bg-status-in-progress text-black" },
-  released: { status: "Released", color: "bg-status-completed text-black" },
-  "partially_received": { status: "Partially Received", color: "bg-status-completed text-black" },
-  closed: { status: "Closed", color: "bg-status-rejected text-black" },
+  draft: { status: "Draft", color: "bg-orange-400 text-white" },
+  pending: { status: "Pending", color: "bg-orange-400 text-white" },
+  submitted: { status: "Submitted", color: "bg-green-500 text-white" },
+  approved: { status: "Approved", color: "bg-green-500 text-white" },
+  rejected: { status: "Rejected", color: "bg-red-500 text-white" },
+  "in-progress": { status: "In Progress", color: "bg-yellow-500 text-white" },
+  "in_process": { status: "In Process", color: "bg-yellow-500 text-white" },
+  completed: { status: "Completed", color: "bg-green-500 text-white" },
+  planned: { status: "Planned", color: "bg-blue-500 text-white" },
+  qc: { status: "QC", color: "bg-orange-500 text-white" },
+  released: { status: "Released", color: "bg-green-500 text-white" },
+  "partially_received": { status: "Partially Received", color: "bg-green-500 text-white" },
+  closed: { status: "Closed", color: "bg-red-500 text-white" },
 };
 
 function normalizeStatus(input?: string): IndentStatus {
@@ -29,6 +30,7 @@ function normalizeStatus(input?: string): IndentStatus {
   if (raw === "in process" || raw === "in_process") return "in_process";
   const allowed: IndentStatus[] = [
     "draft",
+    "pending",
     "submitted",
     "approved",
     "rejected",

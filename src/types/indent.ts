@@ -30,6 +30,7 @@ export interface IndentType {
 
 export type IndentStatus =
   | "draft"
+  | "pending"
   | "submitted"
   | "approved"
   | "rejected"

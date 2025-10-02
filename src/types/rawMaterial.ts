@@ -8,6 +8,7 @@ export interface RawMaterialType {
     batchable: boolean;
     reorder_level: string;
     created_at: string;
+    raw_material_name?: string;
 }
 
 export interface RawMaterialsApiResponse {

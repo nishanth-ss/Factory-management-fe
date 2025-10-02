@@ -12,7 +12,7 @@ const axiosInstance = axios.create({
 // Attach token to all requests except login
 axiosInstance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   if (config.url !== "/auth/login") {
-    const token = localStorage.getItem("authToken"); // or from Redux
+    const token = localStorage.getItem("authToken"); 
     if (token) {
       if (config.headers) {
         config.headers.set?.("Authorization", `Bearer ${token}`); // use set() for AxiosHeaders

@@ -49,6 +49,23 @@ export const useCreateIndent = () => {
   });
 };
 
+export const useGetIndentById = (id: string) => {
+  return useQuery({
+    queryKey: ["indent", id],
+    queryFn: async () => {
+      if (!id) {
+        return null;
+      }
+      const res = await apiRequest<IndentType>("GET", `/indent/${id}`);
+      return res;
+    },
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    enabled: !!id,
+    staleTime: 10_000,
+  });
+};
+
 export const useUpdateIndent = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();

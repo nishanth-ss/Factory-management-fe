@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import DataTable from "@/components/DataTable";
 import StatusBadge from "@/components/StatusBadge";
@@ -18,10 +18,12 @@ import { usePurchaseOrders, useCreatePurchaseOrder, useUpdatePurchaseOrder } fro
 import { useDebounce } from "@/hooks/useDebounce";
 import FormattedDate from "@/lib/formatDate";
 import { getRoleIdFromAuth } from "@/lib/utils";
+import { useGetIndentById, useIndents } from "@/hooks/useIndent";
 
 const insertPurchaseOrderSchema = z.object({
   po_no: z.string().min(1, "PO Number is required"),
   vendor_id: z.string().uuid("Invalid vendor ID"),
+  indent_id: z.string().min(1, "Indent Number is required"),
   status: z.enum(["draft", "submitted", "approved", "partially_received", "closed"]).optional(),
   total_value: z.number().min(0, "Total value cannot be negative").optional(),
   expected_delivery: z.string().optional(), // ISO date string from form
@@ -30,8 +32,8 @@ const insertPurchaseOrderSchema = z.object({
 // Schema for purchase order item
 const insertPurchaseOrderItemSchema = z.object({
   rawMaterialId: z.string().min(1, "Material is required"),
-  qty: z.coerce.number().positive("Quantity must be greater than 0"),
-  rate: z.coerce.number().min(0, "Rate cannot be negative"),
+  qty: z.number().positive("Quantity must be greater than 0"),
+  rate: z.number().min(0, "Rate cannot be negative"),
   uom: z.string().optional(),
   tempId: z.string().optional(), // Temporary field for frontend management
 });
@@ -51,27 +53,27 @@ const purchaseOrderItemColumns = [
   { key: "po_no", header: "PO Number", sortable: true },
   { key: "material_code", header: "Material Code", sortable: true },
   { key: "material_name", header: "Material Name", sortable: true },
-  { 
-    key: "qty", 
-    header: "Ordered Qty", 
+  {
+    key: "qty",
+    header: "Ordered Qty",
     sortable: true,
     render: (qty: any, row: any) => `${qty} ${row.uom || ''}`
   },
-  { 
-    key: "rate", 
-    header: "Rate", 
+  {
+    key: "rate",
+    header: "Rate",
     sortable: true,
     render: (rate: any) => rate != null ? formatINR(String(rate)) : '-'
   },
-  { 
-    key: "received_qty", 
-    header: "Received Qty", 
+  {
+    key: "received_qty",
+    header: "Received Qty",
     sortable: true,
     render: (qty: number, row: any) => `${qty} ${row.uom || ''}`
   },
-  { 
-    key: "value", 
-    header: "Line Value", 
+  {
+    key: "value",
+    header: "Line Value",
     sortable: true,
     render: (_value: any, row: any) => {
       const qty = Number(row.qty ?? 0);
@@ -108,12 +110,13 @@ export default function PurchaseOrdersPage() {
     return `PO${year}${month}${seq}`;
   };
 
-  const form = useForm({
+  const form = useForm<CreatePurchaseOrderFormData>({
     resolver: zodResolver(createPurchaseOrderFormSchema),
     defaultValues: {
       purchaseOrder: {
         po_no: generatePONumber(),
         vendor_id: "",
+        indent_id: "",
         total_value: 0,
         expected_delivery: "",
       },
@@ -132,7 +135,31 @@ export default function PurchaseOrdersPage() {
     name: "items"
   });
 
-  const watchedItems = form.watch("items");
+  const watchedItems = form.watch("items");  
+
+  const {data: indentData} : any = useGetIndentById(form.watch("purchaseOrder.indent_id"));
+
+  useEffect(() => {
+    if (indentData?.data?.items) {
+      const mapped = indentData.data.items.map((item: any) => ({
+        rawMaterialId: item.raw_material_id,
+        uom: item.uom,
+        qty: item.qty,
+        rate: item.rate,
+        tempId: crypto.randomUUID(),
+      }));
+  
+      form.setValue("items", mapped, { shouldDirty: true, shouldValidate: true });
+      // optional: recalc total after items update
+      setTimeout(() => {
+        form.reset({
+          ...form.getValues(), // keeps purchaseOrder fields (incl. indent_id)
+          items: mapped,
+        });
+        
+      }, 0);
+    }
+  }, [indentData]);
 
   // Calculate total value automatically
   const calculateTotal = () => {
@@ -148,7 +175,8 @@ export default function PurchaseOrdersPage() {
   const createMutation = useCreatePurchaseOrder();
   const statusUpdateMutation = useUpdatePurchaseOrder();
   const roleId = getRoleIdFromAuth();
-
+  const { data: indentApiResponse } = useIndents();
+  const indents = indentApiResponse?.data?.indents;
 
   const onSubmit = (data: any) => {
     // Shape payload according to PurchaseOrder type used by useCreatePurchaseOrder
@@ -163,6 +191,7 @@ export default function PurchaseOrdersPage() {
       po_no: data.purchaseOrder.po_no,
       vendor_id: data.purchaseOrder.vendor_id,
       expected_delivery: data.purchaseOrder.expected_delivery || "",
+      indent_id: data.purchaseOrder.indent_id,
       items: cleanedItems,
     };
 
@@ -206,23 +235,24 @@ export default function PurchaseOrdersPage() {
 
   const purchaseOrderColumns = [
     { key: "po_no", header: "PO Number", sortable: true },
+    { key: "indent_no", header: "Indent Number", sortable: true },
     { key: "vendor_name", header: "Vendor", sortable: true },
-    { 
-      key: "status", 
-      header: "Status", 
+    {
+      key: "status",
+      header: "Status",
       sortable: true,
       render: (status: string) => <StatusBadge status={status as any} size="sm" />
     },
-    { 
-      key: "total_value", 
-      header: "Total Value", 
+    {
+      key: "total_value",
+      header: "Total Value",
       sortable: true,
       render: (value: any) => formatINR(String(value ?? 0))
     },
     { key: "expected_delivery", header: "Expected Delivery", sortable: true, render: (date: string) => <FormattedDate date={date} /> },
-    { 
-      key: "created_at", 
-      header: "Created Date", 
+    {
+      key: "created_at",
+      header: "Created Date",
       sortable: true,
       render: (date: string) => <FormattedDate date={date} />
     },
@@ -234,10 +264,10 @@ export default function PurchaseOrdersPage() {
           <Button variant="outline" size="sm" data-testid={`button-view-${row.id}`}>
             <Eye className="h-3 w-3" />
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            data-testid={`button-edit-${row.id}`} 
+          <Button
+            variant="outline"
+            size="sm"
+            data-testid={`button-edit-${row.id}`}
             title="Update Status"
             onClick={() => handleUpdateStatus(row)}
             disabled={roleId !== 1}
@@ -263,7 +293,7 @@ export default function PurchaseOrdersPage() {
           <h1 className="text-3xl font-bold">Purchase Orders</h1>
           <p className="text-muted-foreground">Manage purchase orders and procurement</p>
         </div>
-        
+
         <div className="flex gap-2">
           <div className="flex border rounded-lg p-1">
             <Button
@@ -283,7 +313,7 @@ export default function PurchaseOrdersPage() {
               Order Items
             </Button>
           </div>
-          
+
           {activeTab === "orders" && (
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
@@ -299,7 +329,7 @@ export default function PurchaseOrdersPage() {
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                     {/* Header Details */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border rounded-lg">
                       <FormField
                         control={form.control}
                         name="purchaseOrder.po_no"
@@ -307,7 +337,7 @@ export default function PurchaseOrdersPage() {
                           <FormItem>
                             <FormLabel>PO Number*</FormLabel>
                             <FormControl>
-                              <Input 
+                              <Input
                                 {...field}
                                 placeholder="Auto-generated"
                                 data-testid="input-po-number"
@@ -345,12 +375,37 @@ export default function PurchaseOrdersPage() {
 
                       <FormField
                         control={form.control}
+                        name="purchaseOrder.indent_id"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Indent Number</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-indent">
+                                  <SelectValue placeholder="Select indent" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {indents?.map((indent: any) => (
+                                  <SelectItem key={indent.id} value={String(indent.id)}>
+                                    {indent.indent_no}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage /> 
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
                         name="purchaseOrder.expected_delivery"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Expected Delivery</FormLabel>
                             <FormControl>
-                              <Input 
+                              <Input
                                 type="date"
                                 value={field.value || ""}
                                 onChange={field.onChange}
@@ -406,7 +461,7 @@ export default function PurchaseOrdersPage() {
                               const qty = Number(watchedItems[index]?.qty || 0);
                               const rate = Number(watchedItems[index]?.rate || 0);
                               const amount = qty * rate;
-                              
+
                               return (
                                 <TableRow key={field.tempId}>
                                   <TableCell>
@@ -415,14 +470,14 @@ export default function PurchaseOrdersPage() {
                                       name={`items.${index}.rawMaterialId`}
                                       render={({ field }) => (
                                         <FormItem>
-                                          <Select 
+                                          <Select
                                             onValueChange={(value) => {
                                               field.onChange(value);
                                               const material = rawMaterialResponse?.find((m: any) => m.id === value);
                                               if (material) {
                                                 form.setValue(`items.${index}.uom`, material.uom);
                                               }
-                                            }} 
+                                            }}
                                             defaultValue={field.value || ""}
                                           >
                                             <FormControl>
@@ -443,7 +498,7 @@ export default function PurchaseOrdersPage() {
                                       )}
                                     />
                                   </TableCell>
-                                  
+
                                   <TableCell>
                                     <FormField
                                       control={form.control}
@@ -451,7 +506,7 @@ export default function PurchaseOrdersPage() {
                                       render={({ field }) => (
                                         <FormItem>
                                           <FormControl>
-                                            <Input 
+                                            <Input
                                               type="number"
                                               min="0"
                                               step="0.01"
@@ -474,7 +529,7 @@ export default function PurchaseOrdersPage() {
                                       )}
                                     />
                                   </TableCell>
-                                  
+
                                   <TableCell>
                                     <FormField
                                       control={form.control}
@@ -482,7 +537,7 @@ export default function PurchaseOrdersPage() {
                                       render={({ field }) => (
                                         <FormItem>
                                           <FormControl>
-                                            <Input 
+                                            <Input
                                               value={selectedMaterial?.uom || field.value || ""}
                                               onChange={field.onChange}
                                               onBlur={field.onBlur}
@@ -498,7 +553,7 @@ export default function PurchaseOrdersPage() {
                                       )}
                                     />
                                   </TableCell>
-                                  
+
                                   <TableCell>
                                     <FormField
                                       control={form.control}
@@ -506,18 +561,19 @@ export default function PurchaseOrdersPage() {
                                       render={({ field }) => (
                                         <FormItem>
                                           <FormControl>
-                                            <Input 
+                                            <Input
                                               type="number"
                                               min="0"
                                               step="0.01"
                                               placeholder="0.00"
-                                              value={typeof field.value === "string" ? parseFloat(field.value) : (typeof field.value === "number" ? field.value : (field.value as any) || "")}
+                                              value={field.value === 0 || field.value === undefined ? "" : field.value}
+                                              // value={typeof field.value === "string" ? parseFloat(field.value) : (typeof field.value === "number" ? field.value : (field.value as any) || "")}
                                               onChange={(e) => {
                                                 const val = e.target.value;
                                                 field.onChange(val === "" ? 0 : parseFloat(val));
                                                 setTimeout(calculateTotal, 0);
                                               }}
-                                            
+
                                               name={field.name}
                                               ref={field.ref}
                                               data-testid={`input-rate-${index}`}
@@ -529,13 +585,13 @@ export default function PurchaseOrdersPage() {
                                       )}
                                     />
                                   </TableCell>
-                                  
+
                                   <TableCell>
                                     <div className="font-medium" data-testid={`text-amount-${index}`}>
                                       {formatINR(amount.toString())}
                                     </div>
                                   </TableCell>
-                                  
+
                                   <TableCell>
                                     {fields.length > 1 && (
                                       <Button
@@ -578,16 +634,16 @@ export default function PurchaseOrdersPage() {
 
                     {/* Actions */}
                     <div className="flex justify-end gap-2 pt-4">
-                      <Button 
-                        type="button" 
-                        variant="outline" 
+                      <Button
+                        type="button"
+                        variant="outline"
                         onClick={() => setIsCreateDialogOpen(false)}
                         data-testid="button-cancel-po"
                       >
                         Cancel
                       </Button>
-                      <Button 
-                        type="submit" 
+                      <Button
+                        type="submit"
                         disabled={createMutation.isPending}
                         data-testid="button-save-po"
                       >
@@ -603,7 +659,7 @@ export default function PurchaseOrdersPage() {
       </div>
 
       {activeTab === "orders" && (
-        <DataTable 
+        <DataTable
           title="Purchase Orders"
           columns={purchaseOrderColumns}
           data={enrichedOrders}
@@ -624,7 +680,7 @@ export default function PurchaseOrdersPage() {
       )}
 
       {activeTab === "items" && (
-        <DataTable 
+        <DataTable
           title="Purchase Order Items"
           columns={purchaseOrderItemColumns}
           data={allPOItems}

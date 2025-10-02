@@ -1,7 +1,6 @@
-import {  useEffect } from "react";
+import { useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,18 +10,44 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Plus, Trash2, Package } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Package, Wallet } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
+import { useRawMaterialBatches } from "@/hooks/useRawMaterialBatch";
+import { GetALLProductionBatch, useCreateProduction } from "@/hooks/useProduction";
+import type { ProductionType } from "@/types/productionTypes";
 
-  // Proper schema for the form with material planning
-  const materialPlanSchema = z.object({
-    materialId: z.string().min(1, "Material is required"),
-    plannedConsumption: z.number().positive("Consumption must be positive"),
-    notes: z.string().optional(),
-  });  
+// Proper schema for the form with material planning
+const materialPlanSchema = z.object({
+  materialId: z.string().min(1, "Material is required"),
+  plannedConsumption: z.number().positive("Consumption must be positive"),
+  notes: z.string().optional(),
+});
+
+const operationExpenseSchema = z.object({
+  expense_type: z
+    .string()
+    .min(1, "Expense type is required"), // Labour, Electricity, Water Bill, etc.
+  amount: z
+    .number()
+    .positive("Amount must be greater than 0"),
+  expense_date: z
+    .date()
+    .refine((val) => val !== undefined && val !== null, {
+      message: "Expense date is required",
+    }),
+  labour_type: z
+    .enum(["skilled", "unskilled"])
+    .optional(), // nullable in DB, so optional here
+  labour_count: z
+    .number()
+    .int()
+    .positive("Labour count must be positive")
+    .optional(),
+  category: z.string().optional(), // Operations, Maintenance, etc.
+  remarks: z.string().optional(),
+});
 
 const productionBatchFormSchema = z
   .object({
@@ -32,6 +57,7 @@ const productionBatchFormSchema = z
     articleSku: z.string().min(1, "Article SKU is required"),
     plannedQty: z.number().positive("Planned quantity must be positive"),
     materials: z.array(materialPlanSchema).optional(),
+    operationExpenses: z.array(operationExpenseSchema).optional(),
   })
   .refine(
     (data) => !data.endDate || !data.startDate || data.endDate >= data.startDate,
@@ -44,26 +70,15 @@ const productionBatchFormSchema = z
 type ProductionBatchFormData = z.infer<typeof productionBatchFormSchema>;
 
 interface ProductionBatchFormProps {
-  onSuccess?: () => void;
   onCancel?: () => void;
 }
 
-// Mock materials data (TODO: Replace with API call)
-const mockMaterials = [
-  { id: "1", name: "Steel Sheet", code: "STL-001", uom: "KG" },
-  { id: "2", name: "Aluminum Rod", code: "ALU-002", uom: "MTR" },
-  { id: "3", name: "Copper Wire", code: "COP-003", uom: "MTR" },
-];
-
-export default function ProductionBatchForm({ onSuccess, onCancel }: ProductionBatchFormProps) {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  // TODO: Replace with actual API call
-  const { data: availableMaterials = [] } = useQuery({
-    queryKey: ["/api/raw-materials"],
-    queryFn: () => mockMaterials,
-  });
+export default function ProductionBatchForm({ onCancel }: ProductionBatchFormProps) {
+  // const { data: batches } = useRawMaterialBatches({ page: 1, limit: "all", search: "" });
+  // const batchesData = batches?.data ?? [];
+  const createProductionMutation = useCreateProduction();
+  const productionBatch = GetALLProductionBatch();
+  const productionBatchData: any = productionBatch?.data?.data ?? [];
 
   const form = useForm<ProductionBatchFormData>({
     resolver: zodResolver(productionBatchFormSchema),
@@ -72,13 +87,27 @@ export default function ProductionBatchForm({ onSuccess, onCancel }: ProductionB
       articleSku: "",
       plannedQty: 0,
       materials: [],
+      operationExpenses: [],
     },
   });
+
+  const { data: materials } = useRawMaterialBatches({ page: 1, limit: "all", search: "" });
+  const materialsData = materials?.data ?? [];
 
   // Use field array for materials
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "materials",
+  });
+
+  // Use field array for operation expenses
+  const {
+    fields: expenseFields,
+    append: appendExpense,
+    remove: removeExpense,
+  } = useFieldArray({
+    control: form.control,
+    name: "operationExpenses",
   });
 
   // Generate batch number automatically
@@ -98,32 +127,40 @@ export default function ProductionBatchForm({ onSuccess, onCancel }: ProductionB
     form.setValue('batchNo', generateBatchNo());
   }, [form]);
 
-  const createBatchMutation = useMutation({
-    mutationFn: async (data: ProductionBatchFormData) => {
-      // TODO: Replace with actual API call
-      console.log('Creating production batch:', data);
-      return new Promise(resolve => setTimeout(resolve, 1000));
-    },
-    onSuccess: () => {
-      toast({ title: "Success", description: "Production batch created successfully" });
-      queryClient.invalidateQueries({ queryKey: ["/api/production-batches"] });
-      onSuccess?.();
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error", 
-        description: error.message || "Failed to create production batch",
-        variant: "destructive"
-      });
-    },
-  });
-
   const addMaterial = () => {
     append({ materialId: "", plannedConsumption: 0, notes: "" });
   };
 
   const onSubmit = (data: ProductionBatchFormData) => {
-    createBatchMutation.mutate(data);
+    const payload: ProductionType = {
+      batch_no: data.batchNo,
+      article_sku: data.articleSku,
+      planned_qty: data.plannedQty,
+      start_date: data.startDate ? data.startDate.toISOString() : "",
+      end_date: data.endDate ? data.endDate.toISOString() : "",
+      status: "planned",
+      batch_consumptions: data.materials?.map((m) => ({
+        raw_material_batch_id: m.materialId,
+        qty_consumed: m.plannedConsumption,
+        notes: m.notes ?? "",
+      })) ?? [] as any,
+      operation_expenses: data.operationExpenses?.map((e) => ({
+        expense_type: e.expense_type,
+        amount: e.amount,
+        expense_date: e.expense_date,
+        remarks: e.remarks,
+        category: e.category,
+      })) ?? [] as any,
+    };
+    createProductionMutation.mutate(payload, {
+      onSuccess: () => {
+        onCancel?.();
+      },
+    });
+  };
+
+  const addExpense = () => {
+    appendExpense({ expense_type: "", amount: 0, expense_date: new Date() });
   };
 
   return (
@@ -138,18 +175,21 @@ export default function ProductionBatchForm({ onSuccess, onCancel }: ProductionB
               <FormItem>
                 <FormLabel>Batch Number</FormLabel>
                 <FormControl>
-                  <div className="flex gap-2">
-                    <Input {...field} data-testid="input-batch-no" />
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => field.onChange(generateBatchNo())}
-                      data-testid="button-generate-batch-no"
-                    >
-                      Generate
-                    </Button>
-                  </div>
+                  <Select
+                    {...field}
+                    onValueChange={(value) => field.onChange(value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select batch number" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {productionBatchData?.map((batch: string,index: number) => (
+                        <SelectItem key={index} value={batch}>
+                          {batch}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -179,11 +219,15 @@ export default function ProductionBatchForm({ onSuccess, onCancel }: ProductionB
               <FormItem>
                 <FormLabel>Planned Quantity</FormLabel>
                 <FormControl>
-                  <Input 
-                    {...field} 
-                    type="number" 
-                    placeholder="1000" 
-                    data-testid="input-planned-qty" 
+                  <Input
+                    {...field}
+                    type="number"
+                    placeholder="1000"
+                    data-testid="input-planned-qty"
+                    value={field.value === 0 || field.value === undefined ? "" : field.value}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    // value={field.value ?? ""}
+                    onChange={(e) => field.onChange(e.target.valueAsNumber)} // 👈 convert to number
                   />
                 </FormControl>
                 <FormMessage />
@@ -195,7 +239,7 @@ export default function ProductionBatchForm({ onSuccess, onCancel }: ProductionB
           <FormItem>
             <FormLabel>Status</FormLabel>
             <div className="flex items-center h-9">
-              <Badge variant="secondary" className="bg-status-draft text-white">
+              <Badge variant="secondary" className="bg-status-draft text-gray-500">
                 Planned
               </Badge>
             </div>
@@ -289,6 +333,153 @@ export default function ProductionBatchForm({ onSuccess, onCancel }: ProductionB
 
         <Separator />
 
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <CardTitle className="flex items-center gap-2"> <Wallet className="h-5 w-5" />Other Expenses</CardTitle>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addExpense}
+                data-testid="button-add-expense"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Expense
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {expenseFields.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">
+                No operation expenses added. Click "Add Expense" to add one.
+              </p>
+            ) : (
+              expenseFields.map((expField, index) => (
+                <div key={expField.id} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border rounded-lg">
+                  <FormField
+                    control={form.control}
+                    name={`operationExpenses.${index}.expense_type`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Expense Type</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Labour / Electricity / Water ..." data-testid={`input-expense-type-${index}`} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name={`operationExpenses.${index}.amount`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Amount</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            {...field}
+                            value={field.value === 0 || field.value === undefined ? "" : field.value}
+                            // value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            placeholder="0"
+                            data-testid={`input-expense-amount-${index}`}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name={`operationExpenses.${index}.expense_date`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Expense Date</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full pl-3 text-left font-normal",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                                data-testid={`button-expense-date-${index}`}
+                              >
+                                {field.value ? (
+                                  format(field.value, "PPP")
+                                ) : (
+                                  <span>Pick a date</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value || undefined}
+                              onSelect={field.onChange}
+                              disabled={(date) => date < new Date("1900-01-01")}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name={`operationExpenses.${index}.category`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Category</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Enter category" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name={`operationExpenses.${index}.remarks`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Remarks</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Enter remarks" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex items-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => removeExpense(index)}
+                      data-testid={`button-remove-expense-${index}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
         {/* Material Consumption Planning */}
         <Card>
           <CardHeader>
@@ -297,10 +488,10 @@ export default function ProductionBatchForm({ onSuccess, onCancel }: ProductionB
                 <Package className="h-5 w-5" />
                 Material Consumption Planning
               </CardTitle>
-              <Button 
-                type="button" 
-                variant="outline" 
-                size="sm" 
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
                 onClick={addMaterial}
                 data-testid="button-add-material"
               >
@@ -329,9 +520,9 @@ export default function ProductionBatchForm({ onSuccess, onCancel }: ProductionB
                               <SelectValue placeholder="Select material" />
                             </SelectTrigger>
                             <SelectContent>
-                              {availableMaterials.map((mat) => (
-                                <SelectItem key={mat.id} value={mat.id}>
-                                  {mat.name} ({mat.code})
+                              {materialsData.map((mat) => (
+                                <SelectItem key={mat.id} value={mat.id || ""}>
+                                  {mat.raw_material_name}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -353,9 +544,11 @@ export default function ProductionBatchForm({ onSuccess, onCancel }: ProductionB
                             type="number"
                             placeholder="100"
                             {...field}
-                            value={field.value?.toString() || ''}
+                            value={field.value === 0 || field.value === undefined ? "" : field.value}
+                            // value={field.value?.toString() || ''}
                             onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                             data-testid={`input-consumption-${index}`}
+                            onWheel={(e) => e.currentTarget.blur()}
                           />
                         </FormControl>
                         <FormMessage />
@@ -401,20 +594,20 @@ export default function ProductionBatchForm({ onSuccess, onCancel }: ProductionB
 
         {/* Form Actions */}
         <div className="flex justify-end gap-3">
-          <Button 
-            type="button" 
-            variant="outline" 
+          <Button
+            type="button"
+            variant="outline"
             onClick={onCancel}
             data-testid="button-cancel"
           >
             Cancel
           </Button>
-          <Button 
-            type="submit" 
-            disabled={createBatchMutation.isPending}
+          <Button
+            type="submit"
+            disabled={createProductionMutation.isPending}
             data-testid="button-create"
           >
-            {createBatchMutation.isPending ? "Creating..." : "Create Batch"}
+            {createProductionMutation.isPending ? "Creating..." : "Create Batch"}
           </Button>
         </div>
       </form>
