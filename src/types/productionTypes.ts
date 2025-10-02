@@ -6,6 +6,13 @@ export interface ProductionBatchConsumption {
     qty_consumed: number;          // Quantity consumed
     cost: number;                  // Cost of consumed qty
   }
+
+export interface ProductionOperationExpense {
+    expense_type: string; // Labour, Electricity, Water Bill, etc.
+    amount: number; // Amount of expense
+    expense_date: string; // Date of expense
+    remarks: string; // Remarks
+}
   
   // 🔹 Single production record
   export interface ProductionType {
@@ -15,7 +22,8 @@ export interface ProductionBatchConsumption {
     start_date: string;                     // Production start date (ISO string)
     end_date: string;                       // Production end date (ISO string)
     status: "planned" | "in_progress" | "completed" | "cancelled"; // Production status
-    batch_consumptions: ProductionBatchConsumption[]; // Materials consumed
+    batch_consumptions: ProductionBatchConsumption[];
+    operation_expenses: ProductionOperationExpense[]; // Operation expenses
   }
   
   // 🔹 Response when creating/updating a production record

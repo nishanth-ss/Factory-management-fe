@@ -2,7 +2,7 @@
 
 // 🔹 Single batch object
 export interface RawMaterialBatchType {
-    id: string;
+    id?: string;
     raw_material_id: string;     // Reference to raw material
     batch_no: string;            // Batch number (unique)
     qty_received: number;        // Quantity received in this batch
@@ -11,7 +11,8 @@ export interface RawMaterialBatchType {
     mfg_date: string;            // Manufacturing date (ISO string, e.g. "2025-09-15")
     exp_date: string;            // Expiry date (ISO string)
     location: string;     
-    status: string;       // Storage location (e.g. "Warehouse A - Section B")
+    status?: string;
+    raw_material_name?: string;       // Storage location (e.g. "Warehouse A - Section B")
   }
   
   // 🔹 Response when creating/updating a batch

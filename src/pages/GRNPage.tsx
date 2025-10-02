@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import DataTable from "@/components/DataTable";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Eye, Edit } from "lucide-react";
+import { Plus, Eye } from "lucide-react";
 import { formatINR } from "@/lib/currency";
 import GRNForm from "@/components/GRNForm";
 import { useGrns, useUpdateGrn } from "@/hooks/useGrn";
@@ -78,9 +78,9 @@ export default function GRNPage() {
           <Button variant="outline" size="sm" data-testid={`button-view-${row.id}`} onClick={() => {setSelectedGrn(row), setIsViewDialogOpen(true)}}>
             <Eye className="h-3 w-3" />
           </Button>
-          <Button variant="outline" size="sm" data-testid={`button-edit-${row.id}`} onClick={() => handleUpdateStatus(row)}>
+          {/* <Button variant="outline" size="sm" data-testid={`button-edit-${row.id}`} onClick={() => handleUpdateStatus(row)}>
             <Edit className="h-3 w-3" />
-          </Button>
+          </Button> */}
         </div>
       )
     },
@@ -91,11 +91,11 @@ export default function GRNPage() {
   // For GRN items, we would need to fetch them separately and enrich with material data
   const allGRNItems: any[] = [];
 
-  function handleUpdateStatus(row: any) {
-    setSelectedGrn(row);
-    setNewStatus(row.status);
-    setIsStatusDialogOpen(true);
-  }
+  // function handleUpdateStatus(row: any) {
+  //   setSelectedGrn(row);
+  //   setNewStatus(row.status);
+  //   setIsStatusDialogOpen(true);
+  // }
 
   return (
     <div className="space-y-6" data-testid="page-grn">

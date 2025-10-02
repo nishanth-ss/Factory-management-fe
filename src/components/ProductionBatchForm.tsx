@@ -10,13 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Plus, Trash2, Package } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Package, Wallet } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
 import { useRawMaterialBatches } from "@/hooks/useRawMaterialBatch";
-import { useRawMaterials } from "@/hooks/useRawMaterial";
-import { useCreateProduction } from "@/hooks/useProduction";
+import { GetALLProductionBatch, useCreateProduction } from "@/hooks/useProduction";
 import type { ProductionType } from "@/types/productionTypes";
 
 // Proper schema for the form with material planning
@@ -24,6 +23,30 @@ const materialPlanSchema = z.object({
   materialId: z.string().min(1, "Material is required"),
   plannedConsumption: z.number().positive("Consumption must be positive"),
   notes: z.string().optional(),
+});
+
+const operationExpenseSchema = z.object({
+  expense_type: z
+    .string()
+    .min(1, "Expense type is required"), // Labour, Electricity, Water Bill, etc.
+  amount: z
+    .number()
+    .positive("Amount must be greater than 0"),
+  expense_date: z
+    .date()
+    .refine((val) => val !== undefined && val !== null, {
+      message: "Expense date is required",
+    }),
+  labour_type: z
+    .enum(["skilled", "unskilled"])
+    .optional(), // nullable in DB, so optional here
+  labour_count: z
+    .number()
+    .int()
+    .positive("Labour count must be positive")
+    .optional(),
+  category: z.string().optional(), // Operations, Maintenance, etc.
+  remarks: z.string().optional(),
 });
 
 const productionBatchFormSchema = z
@@ -34,6 +57,7 @@ const productionBatchFormSchema = z
     articleSku: z.string().min(1, "Article SKU is required"),
     plannedQty: z.number().positive("Planned quantity must be positive"),
     materials: z.array(materialPlanSchema).optional(),
+    operationExpenses: z.array(operationExpenseSchema).optional(),
   })
   .refine(
     (data) => !data.endDate || !data.startDate || data.endDate >= data.startDate,
@@ -50,9 +74,11 @@ interface ProductionBatchFormProps {
 }
 
 export default function ProductionBatchForm({ onCancel }: ProductionBatchFormProps) {
-  const { data: batches } = useRawMaterialBatches({ page: 1, limit: "all", search: "" });
-  const batchesData = batches?.data ?? [];
+  // const { data: batches } = useRawMaterialBatches({ page: 1, limit: "all", search: "" });
+  // const batchesData = batches?.data ?? [];
   const createProductionMutation = useCreateProduction();
+  const productionBatch = GetALLProductionBatch();
+  const productionBatchData: any = productionBatch?.data?.data ?? [];
 
   const form = useForm<ProductionBatchFormData>({
     resolver: zodResolver(productionBatchFormSchema),
@@ -61,16 +87,27 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
       articleSku: "",
       plannedQty: 0,
       materials: [],
+      operationExpenses: [],
     },
   });
 
-  const { data: materials } = useRawMaterials({ page: 1, limit: "all", search: "" });
+  const { data: materials } = useRawMaterialBatches({ page: 1, limit: "all", search: "" });
   const materialsData = materials?.data ?? [];
 
   // Use field array for materials
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "materials",
+  });
+
+  // Use field array for operation expenses
+  const {
+    fields: expenseFields,
+    append: appendExpense,
+    remove: removeExpense,
+  } = useFieldArray({
+    control: form.control,
+    name: "operationExpenses",
   });
 
   // Generate batch number automatically
@@ -102,13 +139,28 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
       start_date: data.startDate ? data.startDate.toISOString() : "",
       end_date: data.endDate ? data.endDate.toISOString() : "",
       status: "planned",
-      batch_consumptions: [],
+      batch_consumptions: data.materials?.map((m) => ({
+        raw_material_batch_id: m.materialId,
+        qty_consumed: m.plannedConsumption,
+        notes: m.notes ?? "",
+      })) ?? [] as any,
+      operation_expenses: data.operationExpenses?.map((e) => ({
+        expense_type: e.expense_type,
+        amount: e.amount,
+        expense_date: e.expense_date,
+        remarks: e.remarks,
+        category: e.category,
+      })) ?? [] as any,
     };
-    createProductionMutation.mutate(payload,{
+    createProductionMutation.mutate(payload, {
       onSuccess: () => {
         onCancel?.();
       },
     });
+  };
+
+  const addExpense = () => {
+    appendExpense({ expense_type: "", amount: 0, expense_date: new Date() });
   };
 
   return (
@@ -131,9 +183,9 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
                       <SelectValue placeholder="Select batch number" />
                     </SelectTrigger>
                     <SelectContent>
-                      {batchesData.map((batch) => (
-                        <SelectItem key={batch.id} value={batch.batch_no}>
-                          {batch.batch_no}
+                      {productionBatchData?.map((batch: string,index: number) => (
+                        <SelectItem key={index} value={batch}>
+                          {batch}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -172,8 +224,9 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
                     type="number"
                     placeholder="1000"
                     data-testid="input-planned-qty"
+                    value={field.value === 0 || field.value === undefined ? "" : field.value}
                     onWheel={(e) => e.currentTarget.blur()}
-                    value={field.value ?? ""} // ensure controlled input
+                    // value={field.value ?? ""}
                     onChange={(e) => field.onChange(e.target.valueAsNumber)} // 👈 convert to number
                   />
                 </FormControl>
@@ -186,7 +239,7 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
           <FormItem>
             <FormLabel>Status</FormLabel>
             <div className="flex items-center h-9">
-              <Badge variant="secondary" className="bg-status-draft text-white">
+              <Badge variant="secondary" className="bg-status-draft text-gray-500">
                 Planned
               </Badge>
             </div>
@@ -280,6 +333,153 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
 
         <Separator />
 
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <CardTitle className="flex items-center gap-2"> <Wallet className="h-5 w-5" />Other Expenses</CardTitle>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addExpense}
+                data-testid="button-add-expense"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Expense
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {expenseFields.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">
+                No operation expenses added. Click "Add Expense" to add one.
+              </p>
+            ) : (
+              expenseFields.map((expField, index) => (
+                <div key={expField.id} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border rounded-lg">
+                  <FormField
+                    control={form.control}
+                    name={`operationExpenses.${index}.expense_type`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Expense Type</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Labour / Electricity / Water ..." data-testid={`input-expense-type-${index}`} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name={`operationExpenses.${index}.amount`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Amount</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            {...field}
+                            value={field.value === 0 || field.value === undefined ? "" : field.value}
+                            // value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            placeholder="0"
+                            data-testid={`input-expense-amount-${index}`}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name={`operationExpenses.${index}.expense_date`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Expense Date</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full pl-3 text-left font-normal",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                                data-testid={`button-expense-date-${index}`}
+                              >
+                                {field.value ? (
+                                  format(field.value, "PPP")
+                                ) : (
+                                  <span>Pick a date</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value || undefined}
+                              onSelect={field.onChange}
+                              disabled={(date) => date < new Date("1900-01-01")}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name={`operationExpenses.${index}.category`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Category</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Enter category" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name={`operationExpenses.${index}.remarks`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Remarks</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Enter remarks" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex items-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => removeExpense(index)}
+                      data-testid={`button-remove-expense-${index}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
         {/* Material Consumption Planning */}
         <Card>
           <CardHeader>
@@ -321,8 +521,8 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
                             </SelectTrigger>
                             <SelectContent>
                               {materialsData.map((mat) => (
-                                <SelectItem key={mat.id} value={mat.id}>
-                                  {mat.name}
+                                <SelectItem key={mat.id} value={mat.id || ""}>
+                                  {mat.raw_material_name}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -344,7 +544,8 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
                             type="number"
                             placeholder="100"
                             {...field}
-                            value={field.value?.toString() || ''}
+                            value={field.value === 0 || field.value === undefined ? "" : field.value}
+                            // value={field.value?.toString() || ''}
                             onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                             data-testid={`input-consumption-${index}`}
                             onWheel={(e) => e.currentTarget.blur()}

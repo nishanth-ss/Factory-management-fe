@@ -10,8 +10,11 @@ import { Plus, Eye, Edit, Package, Clock, CheckCircle, AlertTriangle } from "luc
 import { formatINR } from "@/lib/currency";
 import { format } from "date-fns";
 import ProductionBatchForm from "@/components/ProductionBatchForm";
-import { useProductions } from "@/hooks/useProduction";
+import { useProductions, useUpdateProduction } from "@/hooks/useProduction";
 import { useRawMaterialBatches } from "@/hooks/useRawMaterialBatch";
+import { ViewDialog } from "@/components/common/ViewDialogBox";
+import StatusDialog from "@/components/common/StatusDialogBox";
+import { getRoleIdFromAuth } from "@/lib/utils";
 
 // Production batch status configuration
 const statusConfig = {
@@ -38,7 +41,12 @@ export default function ProductionPage() {
   const productionsData = productions?.data ?? [];
   const { data: batches } = useRawMaterialBatches({ page: 1, limit: "all", search: "" });
   const batchesData = batches?.data ?? [];
-  
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [selectedProduction, setSelectedProduction] = useState<any>(null);
+  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
+  const updateProduction = useUpdateProduction();
+  const roleId = getRoleIdFromAuth();
+
 
   const columns = [
     { key: "batch_no", header: "Batch No", sortable: true },
@@ -68,6 +76,19 @@ export default function ProductionPage() {
       }
     },
     {
+      key: "material_cost",
+      header: "Material Cost",
+      // render: (_: any, row: any) => (
+      //   <div>
+      //     {row.batch_consumptions?.map((consumption: any) => (
+      //       <div key={consumption.id}>
+      //         {consumption.cost || 0}
+      //       </div>
+      //     ))}
+      //   </div>
+      // )
+    },
+    {
       key: "status",
       header: "Status",
       render: (status: string) => <StatusBadge status={status as any} size="sm" />
@@ -79,27 +100,16 @@ export default function ProductionPage() {
       render: (date: string) => date ? format(new Date(date), "dd/MM/yyyy") : "-"
     },
     {
-      key: "cost",
-      header: "Material Cost",
-      render: (_: any, row: any) => (
-        <div>
-          {row.batch_consumptions?.map((consumption: any) => (
-            <div key={consumption.id}>
-              {consumption.cost || 0}
-            </div>
-          ))}
-        </div>
-      )
-    },
-    {
       key: "actions",
       header: "Actions",
       render: (_: any, row: any) => (
         <div className="flex gap-1">
-          <Button variant="outline" size="sm" data-testid={`button-view-${row.id}`}>
+          <Button variant="outline" size="sm" data-testid={`button-view-${row.id}`} onClick={() => { setSelectedProduction(row), setIsViewDialogOpen(true) }}>
             <Eye className="h-3 w-3" />
           </Button>
-          <Button variant="outline" size="sm" data-testid={`button-edit-${row.id}`}>
+          <Button variant="outline" size="sm" data-testid={`button-edit-${row.id}`}
+            disabled={roleId !== 1}
+            onClick={() => { setSelectedProduction(row), setIsStatusDialogOpen(true) }}>
             <Edit className="h-3 w-3" />
           </Button>
         </div>
@@ -267,6 +277,92 @@ export default function ProductionPage() {
           setPage(1);
         }}
       />
+
+      {/* View Dialog */}
+      <ViewDialog
+        open={isViewDialogOpen}
+        onOpenChange={() => setIsViewDialogOpen(false)}
+        title="Production Batch"
+        children={<div>
+          <p>Batch Number: {selectedProduction?.batch_no}</p>
+          <p>Article SKU: {selectedProduction?.article_sku}</p>
+          <p>Planned Quantity: {selectedProduction?.planned_quantity}</p>
+          <p>Status: {selectedProduction?.status}</p>
+          <p>Start Date: {new Date(selectedProduction?.start_date).toLocaleDateString()}</p>
+          <p>End Date: {new Date(selectedProduction?.end_date).toLocaleDateString()}</p>
+          <p>Material Cost : {selectedProduction?.material_cost}</p>
+          <p>
+            <h1 className="font-bold py-2">Batch Consumption</h1>
+            <div>
+              {selectedProduction?.batch_consumptions?.map((consumption: any, index: any) => (
+                <div key={index} className="py-2">
+                  <p className="font-bold">{index + 1}st batch</p>
+                  <p>Material Name: {consumption?.raw_material?.name}</p>
+                  <p>Quantity: {consumption?.qty_consumed}</p>
+                  <p>Cost per Unit: {consumption?.cost_per_unit}</p>
+                  <p>Total Cost: {consumption?.total_cost}</p>
+                </div>
+              ))}
+            </div>
+          </p>
+          <p>
+            <h1 className="font-bold py-2">Operation Expenses</h1>
+            <div>
+              {selectedProduction?.operation_expenses?.map((expense: any, index: any) => (
+                <div key={index} className="py-2">
+                  <p className="font-bold">{index + 1}st expense</p>
+                  <p>Expense Type: {expense?.expense_type}</p>
+                  <p>Amount: {expense?.amount}</p>
+                  <p>Expense Date: {new Date(expense?.expense_date).toLocaleDateString()}</p>
+                  <p>Remarks: {expense?.remarks}</p>
+                </div>
+              ))}
+            </div>
+          </p>
+        </div>}
+      />
+
+      {/* Status Dialog */}
+      <StatusDialog
+        open={isStatusDialogOpen}
+        onOpenChange={setIsStatusDialogOpen}
+        title="Production Batch"
+        value={selectedProduction?.status}
+        setValue={(value) =>
+          setSelectedProduction({ ...selectedProduction, status: value })
+        }
+        statusConfig={[
+          { value: "planned", label: "Planned" },
+          { value: "in_process", label: "In Process" },
+          { value: "qc", label: "QC" },
+          { value: "released", label: "Released" },
+        ]}
+        extraField={
+          <Input
+            placeholder="Production Quantity"
+            value={selectedProduction?.produced_qty}
+            onChange={(e) =>
+              setSelectedProduction({
+                ...selectedProduction,
+                produced_qty: e.target.value,
+              })
+            }
+            type="number"
+            onWheel={(e) => e.currentTarget.blur()}
+          />
+        }
+        onSubmit={() => {
+          updateProduction.mutate({
+            id: selectedProduction?.batch_id,
+            data: {
+              status: selectedProduction?.status,
+              produced_qty: selectedProduction?.produced_qty,
+            },
+          });
+          setIsStatusDialogOpen(false); // 👈 close only after saving
+        }}
+      />
+
     </div>
   );
 }

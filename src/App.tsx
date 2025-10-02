@@ -6,7 +6,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import AppSidebar from "@/components/AppSidebar";
 import LoginForm from "@/components/LoginForm";
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import RoleRoute from "@/roues-guard/RoleRoute";
 import DashboardPage from "@/pages/DashboardPage";
 import IndentsPage from "@/pages/IndentsPage";
@@ -76,6 +76,13 @@ function AuthenticatedApp() {
 
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
+  const [location, setLocation] = useLocation();
+
+  // If authenticated and on /login, redirect to dashboard
+  if (isAuthenticated && location === "/login") {
+    setLocation("/");
+    return null;
+  }
 
   if (isLoading) {
     return (

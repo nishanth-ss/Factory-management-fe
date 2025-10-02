@@ -566,7 +566,8 @@ export default function PurchaseOrdersPage() {
                                               min="0"
                                               step="0.01"
                                               placeholder="0.00"
-                                              value={typeof field.value === "string" ? parseFloat(field.value) : (typeof field.value === "number" ? field.value : (field.value as any) || "")}
+                                              value={field.value === 0 || field.value === undefined ? "" : field.value}
+                                              // value={typeof field.value === "string" ? parseFloat(field.value) : (typeof field.value === "number" ? field.value : (field.value as any) || "")}
                                               onChange={(e) => {
                                                 const val = e.target.value;
                                                 field.onChange(val === "" ? 0 : parseFloat(val));

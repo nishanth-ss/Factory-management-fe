@@ -5,6 +5,7 @@ import { useDispatch } from "react-redux";
 import { useEffect } from "react";
 import { setProductionResponse } from "@/store/manufacturingCollection";
 import type { ProductionApiResponse, ProductionCreateResponse, ProductionType } from "@/types/productionTypes";
+import type { AxiosResponse } from "axios";
 
 // 🔹 Fetch production records
 export function useProductions(params: { page?: number; limit?: number; search?: string }) {
@@ -62,7 +63,7 @@ export const useUpdateProduction = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  return useMutation<ProductionCreateResponse, Error, { id: string; data: ProductionType }>({
+  return useMutation<ProductionCreateResponse, Error, { id: string; data: { status: string; produced_qty: string } }>({
     mutationFn: ({ id, data }) =>
       apiRequest<ProductionCreateResponse>("PUT", `/production/${id}`, data),
     onSuccess: (res) => {
@@ -72,5 +73,15 @@ export const useUpdateProduction = () => {
     onError: (error) => {
       toast(error.message, { variant: "error" });
     },
+  });
+};
+
+
+// get production batch
+export const GetALLProductionBatch = () => {
+  return useQuery<AxiosResponse, Error>({
+    queryKey: ["production-batch"],
+    queryFn: () =>
+      apiRequest<AxiosResponse>("GET", `/production/batch`),
   });
 };

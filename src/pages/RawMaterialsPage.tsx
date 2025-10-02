@@ -475,7 +475,8 @@ const createBatch = useCreateRawMaterialBatch();
                                 min="0"
                                 step="0.01"
                                 placeholder="0"
-                                value={field.value || ""}
+                                value={field.value === 0 || field.value === undefined ? "" : field.value}
+                                // value={field.value || ""}
                                 onChange={field.onChange}
                                 onBlur={field.onBlur}
                                 name={field.name}

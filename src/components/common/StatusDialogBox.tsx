@@ -15,9 +15,11 @@ interface DynamicDialogProps {
     description?: React.ReactNode;
     value: string;
     setValue: (value: string) => void;
+    extraField?: React.ReactNode;
     onCancel?: () => void;
     onSubmit?: () => void;
     isPending?: boolean;
+    statusConfig?: any;
     submitLabel?: string;
     cancelLabel?: string;
 }
@@ -29,9 +31,11 @@ const StatusDialog: React.FC<DynamicDialogProps> = ({
     description,
     value,
     setValue,
+    extraField,
     onCancel,
     onSubmit,
     isPending = false,
+    statusConfig,
     submitLabel = "Save",
     cancelLabel = "Cancel",
 }) => {
@@ -44,7 +48,7 @@ const StatusDialog: React.FC<DynamicDialogProps> = ({
 
                 <div className="space-y-4">
                     {description && <div className="text-sm text-muted-foreground">{description}</div>}
-
+                    {extraField}
                     <Select
                         value={value}
                         onValueChange={(value) => setValue(value)}
@@ -53,16 +57,25 @@ const StatusDialog: React.FC<DynamicDialogProps> = ({
                             <SelectValue placeholder="Select Status" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="approved">Approved</SelectItem>
-                            <SelectItem value="rejected">Rejected</SelectItem>
+                            {
+                                statusConfig ? statusConfig.map((status: any) => (
+                                    <SelectItem key={status.value} value={status.value}>
+                                        {status.label}
+                                    </SelectItem>
+                                )) : <>
+                                    <SelectItem value="pending">Pending</SelectItem>
+                                    <SelectItem value="approved">Approved</SelectItem>
+                                    <SelectItem value="rejected">Rejected</SelectItem>
+                                </>
+                            }
+
                         </SelectContent>
                     </Select>
 
                     <div className="flex gap-2 justify-end">
                         <Button
                             variant="outline"
-                            onClick={onCancel}
+                            onClick={onCancel ? onCancel : () => onOpenChange(false)}
                             disabled={isPending}
                         >
                             {cancelLabel}

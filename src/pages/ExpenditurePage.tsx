@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -12,12 +11,12 @@ import {
   Factory, 
   TrendingUp, 
   TrendingDown,
-  Calendar,
   Filter,
   Download
 } from "lucide-react";
 import { formatINR } from "@/lib/currency";
 import { format } from "date-fns";
+import { useExpenditures } from "@/hooks/useExpenditure";
 
 interface ExpenditureItem {
   id: string;
@@ -143,6 +142,8 @@ export default function ExpenditurePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const { data: expenditures } = useExpenditures();
+  const expenditureData = expenditures?.data?.totals;
 
   // Mock data - in real app this would come from API
   const mockSummary: ExpenditureSummary = {
@@ -230,28 +231,28 @@ export default function ExpenditurePage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
           title="Total Expenses"
-          amount={mockSummary.totalExpenses}
+          amount={expenditureData?.total_expense}
           icon={IndianRupee}
           change={mockSummary.monthlyChange}
           changeType="negative"
         />
         <SummaryCard
           title="Materials Cost"
-          amount={mockSummary.materialsCost}
+          amount={expenditureData?.materials_cost}
           icon={Package}
           change={12.3}
           changeType="negative"
         />
         <SummaryCard
           title="Production Cost"
-          amount={mockSummary.productionCost}
+          amount={expenditureData?.production_cost}
           icon={Factory}
           change={-5.2}
           changeType="positive"
         />
         <SummaryCard
           title="Operations Cost"
-          amount={mockSummary.operationsCost}
+          amount={expenditureData?.operations_cost}
           icon={TrendingUp}
           change={3.8}
           changeType="negative"

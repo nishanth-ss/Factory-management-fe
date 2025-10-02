@@ -188,7 +188,8 @@ export function RawMaterialBatchesDialog({
                         <Input
                           type="number"
                           step="0.01"
-                          value={field.value ?? ""}
+                          value={field.value === 0 || field.value === undefined ? "" : field.value}
+                          // value={field.value ?? ""}
                           onChange={(e) =>
                             field.onChange(
                               e.target.value === "" ? "" : parseFloat(e.target.value)
