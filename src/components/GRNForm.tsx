@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -9,37 +8,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { formatINR } from "@/lib/currency";
 import { z } from "zod";
-
-// ---------------------- Zod Schema ----------------------
-const grnItemSchema = z.object({
-  purchaseOrderItemId: z.string(),
-  qty: z.number().min(0.001, "Quantity must be greater than 0"),
-  costPerUnit: z.number().min(0, "Cost cannot be negative").optional(),
-  batchNo: z.string().optional(),
-  mfgDate: z.string().optional(),
-  expDate: z.string().optional(),
-  location: z.string().optional(),
-  tempId: z.string().optional(),
-  materialName: z.string().optional(),
-  materialCode: z.string().optional(),
-  uom: z.string().optional(),
-  orderedQty: z.number().optional(),
-  remainingQty: z.number().optional(),
-  rate: z.number().optional(),
-});
+import { useSelector } from "react-redux";
+import type { RootState } from "@/store/store";
+import { usePurchaseOrders } from "@/hooks/usePurchaseOrder";
+import type { PurchaseOrder } from "@/types/purchaseType";
+import { useCreateGrn } from "@/hooks/useGrn";
+import type { GrnCreatePayload } from "@/types/grn";
+import { formatINR } from "@/lib/currency";
 
 const createGrnFormSchema = z.object({
   grn: z.object({
-    grnNo: z.string().min(1, "GRN Number is required"),
-    purchaseOrderId: z.string().min(1, "Purchase Order is required"),
+    grn_no: z.string().min(1, "GRN Number is required"),
+    purchase_order_id: z.string().min(1, "Purchase Order is required"),
+    gate_pass_number: z.string().min(1, "Gate Pass Number is required"),
     notes: z.string().optional(),
-    receivedBy: z.string().optional(),
+    received_by: z.string().optional(),
   }),
-  items: z.array(grnItemSchema).min(1, "At least one item is required"),
 });
 
 export type CreateGrnFormData = z.infer<typeof createGrnFormSchema>;
@@ -47,33 +32,7 @@ export type CreateGrnFormData = z.infer<typeof createGrnFormSchema>;
 // ---------------------- Types ----------------------
 interface GRNFormProps {
   onSubmit: () => void;
-}
-
-interface PurchaseOrder {
-  id: string;
-  poNo: string;
-  vendorId: string;
-  status: string;
-  totalValue: string;
-  expectedDelivery: string;
-  vendor: {
-    id: string;
-    name: string;
-  };
-  items: Array<{
-    id: string;
-    rawMaterialId: string;
-    qty: string;
-    uom: string;
-    rate: string;
-    receivedQty: string;
-    rawMaterial: {
-      id: string;
-      code: string;
-      name: string;
-      uom: string;
-    };
-  }>;
+  setIsCreateDialogOpen: (open: boolean) => void;
 }
 
 // ---------------------- Helper ----------------------
@@ -90,116 +49,41 @@ const generateGRNNumber = () => {
 };
 
 // ---------------------- Component ----------------------
-export default function GRNForm({ onSubmit }: GRNFormProps) {
-  const { toast } = useToast();
+export default function GRNForm({ onSubmit, setIsCreateDialogOpen }: GRNFormProps) {
   const [selectedPOId, setSelectedPOId] = useState<string>("");
+  const createGrnMutation = useCreateGrn();
 
-  // Fetch approved POs
-  const { data: approvedPOs = [] } = useQuery<PurchaseOrder[]>({
-    queryKey: ["/api/purchase-orders"],
-    select: (data) =>
-      data.filter(
-        (po) => po.status === "approved" || po.status === "partially_received"
-      ),
-  });
-
-  interface User {
-    id: string;
-    name: string;
-    email?: string;
-  }
-  // Fetch users
-  const { data: users = [] } = useQuery<User[]>({ queryKey: ["/api/users"] });
+  const { data: poResponse } = usePurchaseOrders();
+  const approvedPOsData: PurchaseOrder[] = poResponse?.data ?? [];
+  const vendorResponse = useSelector((state: RootState) => state.manufacturing.vendorResponse?.data);
 
   const form = useForm<CreateGrnFormData>({
     resolver: zodResolver(createGrnFormSchema),
     defaultValues: {
       grn: {
-        grnNo: generateGRNNumber(),
-        purchaseOrderId: "",
+        grn_no: generateGRNNumber(),
+        purchase_order_id: "",
+        gate_pass_number: "",
         notes: "",
+        received_by: "",
       },
-      items: [],
-    },
-  });
-
-  const { fields, replace } = useFieldArray({
-    control: form.control,
-    name: "items",
-  });
-
-  // Populate items on PO selection
-  useEffect(() => {
-    if (selectedPOId) {
-      const selectedPO = approvedPOs.find((po) => po.id === selectedPOId);
-      if (selectedPO && selectedPO.items) {
-        const formItems = selectedPO.items
-          .filter(
-            (item) => parseFloat(item.receivedQty || "0") < parseFloat(item.qty)
-          )
-          .map((item) => ({
-            purchaseOrderItemId: item.id,
-            qty: 0,
-            costPerUnit: parseFloat(item.rate) || 0,
-            batchNo: "",
-            mfgDate: "",
-            expDate: "",
-            location: "",
-            tempId: Math.random().toString(36).substr(2, 9),
-            materialName: item.rawMaterial.name,
-            materialCode: item.rawMaterial.code,
-            uom: item.rawMaterial.uom,
-            orderedQty: parseFloat(item.qty),
-            remainingQty:
-              parseFloat(item.qty) - parseFloat(item.receivedQty || "0"),
-            rate: parseFloat(item.rate) || 0,
-          }));
-        replace(formItems);
-        form.setValue("grn.purchaseOrderId", selectedPOId);
-      }
-    }
-  }, [selectedPOId, approvedPOs, replace, form]);
-
-  // Create GRN mutation
-  const createMutation = useMutation({
-    mutationFn: async (data: CreateGrnFormData) => {
-      const firstUserId = users?.[0]?.id;
-      if (!firstUserId) throw new Error("No users found");
-
-      const cleanedItems = data.items.map(
-        ({ tempId, materialName, materialCode, uom, orderedQty, remainingQty, rate, ...item }) => item
-      );
-
-      const payload = {
-        grn: { ...data.grn, receivedBy: firstUserId },
-        items: cleanedItems,
-      };
-
-      return apiRequest("POST", "/api/grns", payload);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/grns"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
-      toast({
-        title: "GRN created successfully",
-        description: "Goods receipt note created and inventory updated.",
-      });
-      onSubmit();
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error creating GRN",
-        description: error.message || "Failed to create GRN.",
-        variant: "destructive",
-      });
     },
   });
 
   const handleSubmit = (data: CreateGrnFormData) => {
-    createMutation.mutate(data);
+    if (!selectedPO) return; // safety guard; submit button is disabled until PO selected
+    const payload: GrnCreatePayload = {
+      ...data.grn,
+      po_no: selectedPO.po_no,
+    };
+    createGrnMutation.mutate(payload,{
+      onSuccess: () => {
+        setIsCreateDialogOpen(false);
+      }
+    });
   };
 
-  const selectedPO = approvedPOs.find((po) => po.id === selectedPOId);
+  const selectedPO = approvedPOsData.find((po) => po.id === selectedPOId);
 
   return (
     <Form {...form}>
@@ -208,7 +92,7 @@ export default function GRNForm({ onSubmit }: GRNFormProps) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <FormField
             control={form.control}
-            name="grn.grnNo"
+            name="grn.grn_no"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>GRN Number*</FormLabel>
@@ -222,7 +106,7 @@ export default function GRNForm({ onSubmit }: GRNFormProps) {
 
           <FormField
             control={form.control}
-            name="grn.purchaseOrderId"
+            name="grn.purchase_order_id"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Purchase Order*</FormLabel>
@@ -239,13 +123,30 @@ export default function GRNForm({ onSubmit }: GRNFormProps) {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {approvedPOs.map((po) => (
-                      <SelectItem key={po.id} value={po.id}>
-                        {po.poNo} - {po.vendor.name} ({formatINR(po.totalValue)})
-                      </SelectItem>
-                    ))}
+                    {approvedPOsData.map((po) => {
+                      const vendorName = vendorResponse?.find((v: any) => v.id === (po as any).vendor_id)?.name || "Vendor";
+                      return (
+                        <SelectItem key={po.id} value={po.id as string}>
+                          {po.po_no} - {vendorName}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="grn.gate_pass_number"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Gate Pass Number*</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -254,7 +155,7 @@ export default function GRNForm({ onSubmit }: GRNFormProps) {
           <div className="space-y-1">
             <FormLabel>Status</FormLabel>
             <div className="pt-2">
-              <Badge variant="secondary">Receiving</Badge>
+              <Badge variant="secondary">{selectedPO?.status}</Badge>
             </div>
           </div>
         </div>
@@ -269,128 +170,21 @@ export default function GRNForm({ onSubmit }: GRNFormProps) {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">PO Number:</span>
-                  <p className="font-medium">{selectedPO.poNo}</p>
+                  <p className="font-medium">{selectedPO.po_no}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Vendor:</span>
-                  <p className="font-medium">{selectedPO.vendor.name}</p>
+                  <p className="font-medium">{vendorResponse?.find((v: any) => v.id === (selectedPO as any).vendor_id)?.name || "Vendor"}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Total Value:</span>
-                  <p className="font-medium">{formatINR(selectedPO.totalValue)}</p>
+                  <p className="font-medium">{formatINR(selectedPO.total_value)}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Expected Delivery:</span>
-                  <p className="font-medium">{selectedPO.expectedDelivery}</p>
+                  <p className="font-medium">{selectedPO.expected_delivery}</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* GRN Items */}
-        {fields.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Items to Receive</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {fields.map((field, index) => (
-                <div
-                  key={field.id}
-                  className="grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 border rounded-md"
-                >
-                  <div className="lg:col-span-2">
-                    <p className="font-medium text-sm">{field.materialCode}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {field.materialName}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Remaining: {field.remainingQty} {field.uom}
-                    </p>
-                  </div>
-
-                  <div className="lg:col-span-2">
-                    <FormField
-                      control={form.control}
-                      name={`items.${index}.qty`}
-                      render={({ field: qtyField }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Received Qty*</FormLabel>
-                          <FormControl>
-                            <Input {...qtyField} type="number" step="0.001" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="lg:col-span-2">
-                    <FormField
-                      control={form.control}
-                      name={`items.${index}.costPerUnit`}
-                      render={({ field: costField }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Cost per Unit</FormLabel>
-                          <FormControl>
-                            <Input {...costField} type="number" step="0.01" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="lg:col-span-2">
-                    <FormField
-                      control={form.control}
-                      name={`items.${index}.batchNo`}
-                      render={({ field: batchField }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Batch No*</FormLabel>
-                          <FormControl>
-                            <Input {...batchField} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="lg:col-span-1">
-                    <FormField
-                      control={form.control}
-                      name={`items.${index}.mfgDate`}
-                      render={({ field: mfgField }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Mfg Date</FormLabel>
-                          <FormControl>
-                            <Input {...mfgField} type="date" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="lg:col-span-1">
-                    <FormField
-                      control={form.control}
-                      name={`items.${index}.expDate`}
-                      render={({ field: expField }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Exp Date</FormLabel>
-                          <FormControl>
-                            <Input {...expField} type="date" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-              ))}
             </CardContent>
           </Card>
         )}
@@ -417,9 +211,9 @@ export default function GRNForm({ onSubmit }: GRNFormProps) {
           </Button>
           <Button
             type="submit"
-            disabled={createMutation.isPending || fields.length === 0 || !selectedPOId}
+            disabled={createGrnMutation.isPending || !selectedPOId}
           >
-            {createMutation.isPending ? "Creating..." : "Create GRN"}
+            {createGrnMutation.isPending ? "Creating..." : "Create GRN"}
           </Button>
         </div>
       </form>

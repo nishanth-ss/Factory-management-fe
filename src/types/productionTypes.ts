@@ -1,0 +1,38 @@
+// src/types/production.ts
+
+// 🔹 Batch consumption record (used inside production)
+export interface ProductionBatchConsumption {
+    raw_material_batch_id: string; // Which raw material batch was consumed
+    qty_consumed: number;          // Quantity consumed
+    cost: number;                  // Cost of consumed qty
+  }
+  
+  // 🔹 Single production record
+  export interface ProductionType {
+    batch_no: string;                       // Production batch number
+    article_sku: string;                    // SKU of the product being produced
+    planned_qty: number;                    // Planned quantity to produce
+    start_date: string;                     // Production start date (ISO string)
+    end_date: string;                       // Production end date (ISO string)
+    status: "planned" | "in_progress" | "completed" | "cancelled"; // Production status
+    batch_consumptions: ProductionBatchConsumption[]; // Materials consumed
+  }
+  
+  // 🔹 Response when creating/updating a production record
+  export interface ProductionCreateResponse {
+    success: boolean;
+    message: string;
+    data: ProductionType;
+  }
+  
+  // 🔹 Paginated API response for fetching production records
+  export interface ProductionApiResponse {
+    success: boolean;
+    message: string;
+    data: ProductionType[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }
+  

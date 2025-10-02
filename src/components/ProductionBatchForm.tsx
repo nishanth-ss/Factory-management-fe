@@ -1,7 +1,6 @@
-import {  useEffect } from "react";
+import { useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,15 +13,18 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon, Plus, Trash2, Package } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
+import { useRawMaterialBatches } from "@/hooks/useRawMaterialBatch";
+import { useRawMaterials } from "@/hooks/useRawMaterial";
+import { useCreateProduction } from "@/hooks/useProduction";
+import type { ProductionType } from "@/types/productionTypes";
 
-  // Proper schema for the form with material planning
-  const materialPlanSchema = z.object({
-    materialId: z.string().min(1, "Material is required"),
-    plannedConsumption: z.number().positive("Consumption must be positive"),
-    notes: z.string().optional(),
-  });  
+// Proper schema for the form with material planning
+const materialPlanSchema = z.object({
+  materialId: z.string().min(1, "Material is required"),
+  plannedConsumption: z.number().positive("Consumption must be positive"),
+  notes: z.string().optional(),
+});
 
 const productionBatchFormSchema = z
   .object({
@@ -44,26 +46,13 @@ const productionBatchFormSchema = z
 type ProductionBatchFormData = z.infer<typeof productionBatchFormSchema>;
 
 interface ProductionBatchFormProps {
-  onSuccess?: () => void;
   onCancel?: () => void;
 }
 
-// Mock materials data (TODO: Replace with API call)
-const mockMaterials = [
-  { id: "1", name: "Steel Sheet", code: "STL-001", uom: "KG" },
-  { id: "2", name: "Aluminum Rod", code: "ALU-002", uom: "MTR" },
-  { id: "3", name: "Copper Wire", code: "COP-003", uom: "MTR" },
-];
-
-export default function ProductionBatchForm({ onSuccess, onCancel }: ProductionBatchFormProps) {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  // TODO: Replace with actual API call
-  const { data: availableMaterials = [] } = useQuery({
-    queryKey: ["/api/raw-materials"],
-    queryFn: () => mockMaterials,
-  });
+export default function ProductionBatchForm({ onCancel }: ProductionBatchFormProps) {
+  const { data: batches } = useRawMaterialBatches({ page: 1, limit: "all", search: "" });
+  const batchesData = batches?.data ?? [];
+  const createProductionMutation = useCreateProduction();
 
   const form = useForm<ProductionBatchFormData>({
     resolver: zodResolver(productionBatchFormSchema),
@@ -74,6 +63,9 @@ export default function ProductionBatchForm({ onSuccess, onCancel }: ProductionB
       materials: [],
     },
   });
+
+  const { data: materials } = useRawMaterials({ page: 1, limit: "all", search: "" });
+  const materialsData = materials?.data ?? [];
 
   // Use field array for materials
   const { fields, append, remove } = useFieldArray({
@@ -98,32 +90,25 @@ export default function ProductionBatchForm({ onSuccess, onCancel }: ProductionB
     form.setValue('batchNo', generateBatchNo());
   }, [form]);
 
-  const createBatchMutation = useMutation({
-    mutationFn: async (data: ProductionBatchFormData) => {
-      // TODO: Replace with actual API call
-      console.log('Creating production batch:', data);
-      return new Promise(resolve => setTimeout(resolve, 1000));
-    },
-    onSuccess: () => {
-      toast({ title: "Success", description: "Production batch created successfully" });
-      queryClient.invalidateQueries({ queryKey: ["/api/production-batches"] });
-      onSuccess?.();
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error", 
-        description: error.message || "Failed to create production batch",
-        variant: "destructive"
-      });
-    },
-  });
-
   const addMaterial = () => {
     append({ materialId: "", plannedConsumption: 0, notes: "" });
   };
 
   const onSubmit = (data: ProductionBatchFormData) => {
-    createBatchMutation.mutate(data);
+    const payload: ProductionType = {
+      batch_no: data.batchNo,
+      article_sku: data.articleSku,
+      planned_qty: data.plannedQty,
+      start_date: data.startDate ? data.startDate.toISOString() : "",
+      end_date: data.endDate ? data.endDate.toISOString() : "",
+      status: "planned",
+      batch_consumptions: [],
+    };
+    createProductionMutation.mutate(payload,{
+      onSuccess: () => {
+        onCancel?.();
+      },
+    });
   };
 
   return (
@@ -138,18 +123,21 @@ export default function ProductionBatchForm({ onSuccess, onCancel }: ProductionB
               <FormItem>
                 <FormLabel>Batch Number</FormLabel>
                 <FormControl>
-                  <div className="flex gap-2">
-                    <Input {...field} data-testid="input-batch-no" />
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => field.onChange(generateBatchNo())}
-                      data-testid="button-generate-batch-no"
-                    >
-                      Generate
-                    </Button>
-                  </div>
+                  <Select
+                    {...field}
+                    onValueChange={(value) => field.onChange(value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select batch number" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {batchesData.map((batch) => (
+                        <SelectItem key={batch.id} value={batch.batch_no}>
+                          {batch.batch_no}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -179,11 +167,14 @@ export default function ProductionBatchForm({ onSuccess, onCancel }: ProductionB
               <FormItem>
                 <FormLabel>Planned Quantity</FormLabel>
                 <FormControl>
-                  <Input 
-                    {...field} 
-                    type="number" 
-                    placeholder="1000" 
-                    data-testid="input-planned-qty" 
+                  <Input
+                    {...field}
+                    type="number"
+                    placeholder="1000"
+                    data-testid="input-planned-qty"
+                    onWheel={(e) => e.currentTarget.blur()}
+                    value={field.value ?? ""} // ensure controlled input
+                    onChange={(e) => field.onChange(e.target.valueAsNumber)} // 👈 convert to number
                   />
                 </FormControl>
                 <FormMessage />
@@ -297,10 +288,10 @@ export default function ProductionBatchForm({ onSuccess, onCancel }: ProductionB
                 <Package className="h-5 w-5" />
                 Material Consumption Planning
               </CardTitle>
-              <Button 
-                type="button" 
-                variant="outline" 
-                size="sm" 
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
                 onClick={addMaterial}
                 data-testid="button-add-material"
               >
@@ -329,9 +320,9 @@ export default function ProductionBatchForm({ onSuccess, onCancel }: ProductionB
                               <SelectValue placeholder="Select material" />
                             </SelectTrigger>
                             <SelectContent>
-                              {availableMaterials.map((mat) => (
+                              {materialsData.map((mat) => (
                                 <SelectItem key={mat.id} value={mat.id}>
-                                  {mat.name} ({mat.code})
+                                  {mat.name}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -356,6 +347,7 @@ export default function ProductionBatchForm({ onSuccess, onCancel }: ProductionB
                             value={field.value?.toString() || ''}
                             onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                             data-testid={`input-consumption-${index}`}
+                            onWheel={(e) => e.currentTarget.blur()}
                           />
                         </FormControl>
                         <FormMessage />
@@ -401,20 +393,20 @@ export default function ProductionBatchForm({ onSuccess, onCancel }: ProductionB
 
         {/* Form Actions */}
         <div className="flex justify-end gap-3">
-          <Button 
-            type="button" 
-            variant="outline" 
+          <Button
+            type="button"
+            variant="outline"
             onClick={onCancel}
             data-testid="button-cancel"
           >
             Cancel
           </Button>
-          <Button 
-            type="submit" 
-            disabled={createBatchMutation.isPending}
+          <Button
+            type="submit"
+            disabled={createProductionMutation.isPending}
             data-testid="button-create"
           >
-            {createBatchMutation.isPending ? "Creating..." : "Create Batch"}
+            {createProductionMutation.isPending ? "Creating..." : "Create Batch"}
           </Button>
         </div>
       </form>

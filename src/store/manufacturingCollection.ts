@@ -5,6 +5,9 @@ import type { IndentsApiResponse } from "@/types/indent";
 import type { VendorsApiResponse } from "@/types/vendor";
 import type { PurchaseOrderApiResponse } from "@/types/purchaseType";
 import type { UsersApiResponse } from "@/types/UsersApiResponse";
+import type { GrnsApiResponse } from "@/types/grn";
+import type { RawMaterialBatchApiResponse } from "@/types/rawmaterialBatch";
+import type { ProductionApiResponse } from "@/types/productionTypes";
 
 interface ManufacturingState {
   rawMaterialResponse: RawMaterialsApiResponse | null;
@@ -12,6 +15,9 @@ interface ManufacturingState {
   vendorResponse: VendorsApiResponse | null;
   purchaseOrderResponse: PurchaseOrderApiResponse | null;
   userResponse: UsersApiResponse | null;
+  grnResponse: GrnsApiResponse | null;
+  rawMaterialBatch: RawMaterialBatchApiResponse | null;
+  productionResponse: ProductionApiResponse | null;
 }
 
 const initialState: ManufacturingState = {
@@ -20,6 +26,9 @@ const initialState: ManufacturingState = {
   vendorResponse: null,
   purchaseOrderResponse: null,
   userResponse: null,
+  grnResponse: null,
+  rawMaterialBatch: null,
+  productionResponse: null,
 };
 
 export const manufacturingSlice = createSlice({
@@ -56,8 +65,34 @@ export const manufacturingSlice = createSlice({
     clearUserResponse: (state) => {
       state.userResponse = null;
     },
+    setGrnResponse: (state, action: PayloadAction<GrnsApiResponse>) => {
+      state.grnResponse = action.payload;
+    },
+    clearGrnResponse: (state) => {
+      state.grnResponse = null;
+    },
+    setRawMaterialBatchResponse: (state,action:PayloadAction<RawMaterialBatchApiResponse>)=> {
+      state.rawMaterialBatch = action.payload;
+    },
+    clearRawMaterialBatchResponse: (state)=>{
+      state.rawMaterialBatch = null;
+    },
+    setProductionResponse: (state, action: PayloadAction<ProductionApiResponse>) => {
+      state.productionResponse = action.payload;
+    },
+    clearProductionResponse: (state) => {
+      state.productionResponse = null;
+    },
   },
 });
 
-export const { setRawMaterialResponse, clearRawMaterialResponse, setIndentResponse, clearIndentResponse, setVendorResponse, clearVendorResponse, setPurchaseOrderResponse, clearPurchaseOrderResponse, setUserResponse, clearUserResponse } = manufacturingSlice.actions;
+export const { setRawMaterialResponse, clearRawMaterialResponse,
+  setIndentResponse, clearIndentResponse,
+  setVendorResponse, clearVendorResponse,
+  setPurchaseOrderResponse, clearPurchaseOrderResponse,
+  setUserResponse, clearUserResponse,
+  setGrnResponse, clearGrnResponse,
+  setRawMaterialBatchResponse,clearRawMaterialBatchResponse,
+  setProductionResponse, clearProductionResponse
+} = manufacturingSlice.actions;
 export default manufacturingSlice.reducer;

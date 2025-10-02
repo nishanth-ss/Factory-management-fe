@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import DataTable from "@/components/DataTable";
 import StatusBadge from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +10,8 @@ import { Plus, Eye, Edit, Package, Clock, CheckCircle, AlertTriangle } from "luc
 import { formatINR } from "@/lib/currency";
 import { format } from "date-fns";
 import ProductionBatchForm from "@/components/ProductionBatchForm";
+import { useProductions } from "@/hooks/useProduction";
+import { useRawMaterialBatches } from "@/hooks/useRawMaterialBatch";
 
 // Production batch status configuration
 const statusConfig = {
@@ -19,43 +20,6 @@ const statusConfig = {
   qc: { label: "QC", color: "bg-orange-500", icon: AlertTriangle },
   released: { label: "Released", color: "bg-green-500", icon: CheckCircle },
 };
-
-// Mock data for development (TODO: Replace with API calls)
-const mockProductionBatches = [
-  {
-    id: "1",
-    batchNo: "PB-2024-001",
-    articleSku: "WIDGET-A",
-    plannedQty: "1000",
-    producedQty: "850",
-    status: "in_process",
-    startDate: "2024-01-15T08:00:00Z",
-    endDate: null,
-    createdAt: "2024-01-15T08:00:00Z",
-  },
-  {
-    id: "2", 
-    batchNo: "PB-2024-002",
-    articleSku: "GADGET-B",
-    plannedQty: "500",
-    producedQty: "500",
-    status: "qc",
-    startDate: "2024-01-10T08:00:00Z",
-    endDate: "2024-01-14T17:00:00Z",
-    createdAt: "2024-01-10T08:00:00Z",
-  },
-  {
-    id: "3",
-    batchNo: "PB-2024-003", 
-    articleSku: "COMPONENT-C",
-    plannedQty: "2000",
-    producedQty: "2000",
-    status: "released",
-    startDate: "2024-01-05T08:00:00Z",
-    endDate: "2024-01-12T17:00:00Z",
-    createdAt: "2024-01-05T08:00:00Z",
-  },
-];
 
 // Mock material consumptions for cost calculation
 const mockConsumptions = {
@@ -67,46 +31,31 @@ const mockConsumptions = {
 export default function ProductionPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit] = useState(5);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-
-  // TODO: Replace with actual API call
-  const { data: batches = [] } = useQuery({
-    queryKey: ["/api/production-batches", statusFilter, searchTerm],
-    queryFn: () => {
-      // Simulate API response
-      let filtered = mockProductionBatches;
-      
-      if (statusFilter !== "all") {
-        filtered = filtered.filter(batch => batch.status === statusFilter);
-      }
-      
-      if (searchTerm) {
-        filtered = filtered.filter(batch => 
-          batch.batchNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          batch.articleSku.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-      }
-      
-      return filtered;
-    },
-  });
+  const { data: productions } = useProductions({ page, limit, search: searchTerm });
+  const productionsData = productions?.data ?? [];
+  const { data: batches } = useRawMaterialBatches({ page: 1, limit: "all", search: "" });
+  const batchesData = batches?.data ?? [];
+  
 
   const columns = [
-    { key: "batchNo", header: "Batch No", sortable: true },
-    { key: "articleSku", header: "Article SKU", sortable: true },
-    { 
-      key: "plannedQty", 
-      header: "Planned Qty", 
+    { key: "batch_no", header: "Batch No", sortable: true },
+    { key: "article_sku", header: "Article SKU", sortable: true },
+    {
+      key: "planned_qty",
+      header: "Planned Qty",
       sortable: true,
       render: (qty: string) => qty ? `${qty} PCS` : "-"
     },
-    { 
-      key: "producedQty", 
-      header: "Produced Qty", 
+    {
+      key: "produced_qty",
+      header: "Produced Qty",
       sortable: true,
       render: (qty: string, row: any) => {
         const produced = parseFloat(qty || "0");
-        const planned = parseFloat(row.plannedQty || "0");
+        const planned = parseFloat(row.planned_qty || "0");
         const percentage = planned > 0 ? ((produced / planned) * 100).toFixed(1) : "0";
         return (
           <div className="flex flex-col">
@@ -118,13 +67,13 @@ export default function ProductionPage() {
         );
       }
     },
-    { 
-      key: "status", 
-      header: "Status", 
+    {
+      key: "status",
+      header: "Status",
       render: (status: string) => <StatusBadge status={status as any} size="sm" />
     },
     {
-      key: "startDate",
+      key: "start_date",
       header: "Start Date",
       sortable: true,
       render: (date: string) => date ? format(new Date(date), "dd/MM/yyyy") : "-"
@@ -132,13 +81,18 @@ export default function ProductionPage() {
     {
       key: "cost",
       header: "Material Cost",
-      render: (_: any, row: any) => {
-        const cost = mockConsumptions[row.id as keyof typeof mockConsumptions];
-        return cost ? formatINR(cost) : "-";
-      }
+      render: (_: any, row: any) => (
+        <div>
+          {row.batch_consumptions?.map((consumption: any) => (
+            <div key={consumption.id}>
+              {consumption.cost || 0}
+            </div>
+          ))}
+        </div>
+      )
     },
-    { 
-      key: "actions", 
+    {
+      key: "actions",
       header: "Actions",
       render: (_: any, row: any) => (
         <div className="flex gap-1">
@@ -154,11 +108,11 @@ export default function ProductionPage() {
   ];
 
   // Calculate KPI metrics
-  const totalBatches = mockProductionBatches.length;
-  const activeBatches = mockProductionBatches.filter(b => 
+  const totalBatches = batches?.total ?? 0;
+  const activeBatches = batchesData.filter(b =>
     b.status === "planned" || b.status === "in_process"
   ).length;
-  const completedBatches = mockProductionBatches.filter(b => 
+  const completedBatches = batchesData.filter(b =>
     b.status === "released"
   ).length;
   const totalCost = Object.values(mockConsumptions).reduce((sum, cost) => sum + cost, 0);
@@ -185,8 +139,7 @@ export default function ProductionPage() {
                 Create a new production batch with material consumption planning
               </DialogDescription>
             </DialogHeader>
-            <ProductionBatchForm 
-              onSuccess={() => setIsCreateDialogOpen(false)}
+            <ProductionBatchForm
               onCancel={() => setIsCreateDialogOpen(false)}
             />
           </DialogContent>
@@ -264,7 +217,7 @@ export default function ProductionPage() {
             </SelectContent>
           </Select>
         </div>
-        
+
         <div className="flex-1 max-w-md">
           <Input
             placeholder="Search by batch number or article SKU..."
@@ -297,12 +250,22 @@ export default function ProductionPage() {
       </Card>
 
       {/* Production Batches Table */}
-      <DataTable 
+      <DataTable
         title="Production Batches"
         columns={columns}
-        data={batches}
-        searchable={false}
+        data={productionsData}
         exportable={true}
+        pagination={true}
+        searchable={true}
+        totalRecords={productions?.total ?? 0}
+        currentPage={productions?.page ?? page}
+        rowsPerPage={productions?.limit ?? limit}
+        onPageChange={(p) => setPage(p)}
+        search={searchTerm}
+        onSearch={(term) => {
+          setSearchTerm(term);
+          setPage(1);
+        }}
       />
     </div>
   );

@@ -6,7 +6,7 @@ import { useDispatch } from "react-redux";
 import { setRawMaterialResponse } from "@/store/manufacturingCollection";
 import { useEffect } from "react";
 
-export function useRawMaterials(params: { page?: number; limit?: number; search?: string }) {
+export function useRawMaterials(params: { page?: number; limit?: number | string; search?: string }) {
   const dispatch = useDispatch();
 
   const page = params.page ?? 1;
