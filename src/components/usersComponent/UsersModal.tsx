@@ -60,7 +60,7 @@ export default function CreateUserDialog({ open, setOpen }: { open: boolean; set
     handleSubmit,
     reset,
     setValue,
-    getValues,
+    watch,
     formState: { errors },
   } = useForm<FormValues>({
     defaultValues: {
@@ -126,6 +126,8 @@ export default function CreateUserDialog({ open, setOpen }: { open: boolean; set
   }
   };
 
+  const role = watch("role");
+
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
       setOpen(isOpen);
@@ -151,7 +153,7 @@ export default function CreateUserDialog({ open, setOpen }: { open: boolean; set
           </div>
 
           <div>
-            <Select value={getValues("role")} onValueChange={(val) => setValue("role", val as "admin" | "productionsupervisor")}>
+            <Select value={role} onValueChange={(val) => setValue("role", val as "admin" | "productionsupervisor")}>
               <SelectTrigger>
                 <SelectValue placeholder="Select Role" />
               </SelectTrigger>

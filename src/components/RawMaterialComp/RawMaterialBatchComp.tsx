@@ -100,7 +100,7 @@ export function RawMaterialBatchesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl h-[calc(100vh-10rem)] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Raw Material Batches</DialogTitle>
         </DialogHeader>

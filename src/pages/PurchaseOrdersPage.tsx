@@ -19,11 +19,13 @@ import { useDebounce } from "@/hooks/useDebounce";
 import FormattedDate from "@/lib/formatDate";
 import { getRoleIdFromAuth } from "@/lib/utils";
 import { useGetIndentById, useIndents } from "@/hooks/useIndent";
+import { GetALLProductionBatch } from "@/hooks/useProduction";
 
 const insertPurchaseOrderSchema = z.object({
   po_no: z.string().min(1, "PO Number is required"),
   vendor_id: z.string().uuid("Invalid vendor ID"),
   indent_id: z.string().min(1, "Indent Number is required"),
+  batch_no: z.string().min(1, "Batch Number is required"),
   status: z.enum(["draft", "submitted", "approved", "partially_received", "closed"]).optional(),
   total_value: z.number().min(0, "Total value cannot be negative").optional(),
   expected_delivery: z.string().optional(), // ISO date string from form
@@ -94,12 +96,21 @@ export default function PurchaseOrdersPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedPO, setSelectedPO] = useState<any | null>(null);
   const [newStatus, setNewStatus] = useState<string>("");
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [selectedProduction, setSelectedProduction] = useState<any | null>(null);
 
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 350);
   const { data: purchaseOrdersResponse } = usePurchaseOrders({ page, limit: rowsPerPage, search: debouncedSearch });
   const purchaseOrders = Array.isArray(purchaseOrdersResponse?.data) ? purchaseOrdersResponse?.data : [];
   const totalRecords = purchaseOrdersResponse?.total ?? 0;
+  const createMutation = useCreatePurchaseOrder();
+  const statusUpdateMutation = useUpdatePurchaseOrder();
+  const roleId = getRoleIdFromAuth();
+  const { data: indentApiResponse } = useIndents();
+  const indents = indentApiResponse?.data?.indents;
+  const { data: batchApiResponse } = GetALLProductionBatch();
+  const batches = batchApiResponse?.data;
 
   // Generate unique PO number
   const generatePONumber = () => {
@@ -117,6 +128,7 @@ export default function PurchaseOrdersPage() {
         po_no: generatePONumber(),
         vendor_id: "",
         indent_id: "",
+        batch_no: "",
         total_value: 0,
         expected_delivery: "",
       },
@@ -135,9 +147,9 @@ export default function PurchaseOrdersPage() {
     name: "items"
   });
 
-  const watchedItems = form.watch("items");  
+  const watchedItems = form.watch("items");
+  const { data: indentData }: any = useGetIndentById(form.watch("purchaseOrder.indent_id"));
 
-  const {data: indentData} : any = useGetIndentById(form.watch("purchaseOrder.indent_id"));
 
   useEffect(() => {
     if (indentData?.data?.items) {
@@ -148,7 +160,7 @@ export default function PurchaseOrdersPage() {
         rate: item.rate,
         tempId: crypto.randomUUID(),
       }));
-  
+
       form.setValue("items", mapped, { shouldDirty: true, shouldValidate: true });
       // optional: recalc total after items update
       setTimeout(() => {
@@ -156,7 +168,7 @@ export default function PurchaseOrdersPage() {
           ...form.getValues(), // keeps purchaseOrder fields (incl. indent_id)
           items: mapped,
         });
-        
+
       }, 0);
     }
   }, [indentData]);
@@ -172,12 +184,6 @@ export default function PurchaseOrdersPage() {
     return total;
   };
 
-  const createMutation = useCreatePurchaseOrder();
-  const statusUpdateMutation = useUpdatePurchaseOrder();
-  const roleId = getRoleIdFromAuth();
-  const { data: indentApiResponse } = useIndents();
-  const indents = indentApiResponse?.data?.indents;
-
   const onSubmit = (data: any) => {
     // Shape payload according to PurchaseOrder type used by useCreatePurchaseOrder
     const cleanedItems = (data.items as any[]).map(({ tempId, ...item }) => ({
@@ -190,6 +196,7 @@ export default function PurchaseOrdersPage() {
     const payload = {
       po_no: data.purchaseOrder.po_no,
       vendor_id: data.purchaseOrder.vendor_id,
+      batch_no: data.purchaseOrder.batch_no,
       expected_delivery: data.purchaseOrder.expected_delivery || "",
       indent_id: data.purchaseOrder.indent_id,
       items: cleanedItems,
@@ -261,7 +268,7 @@ export default function PurchaseOrdersPage() {
       header: "Actions",
       render: (_value: any, row: any) => (
         <div className="flex gap-1">
-          <Button variant="outline" size="sm" data-testid={`button-view-${row.id}`}>
+          <Button variant="outline" size="sm" data-testid={`button-view-${row.id}`} onClick={() => { setSelectedProduction(row), setIsViewDialogOpen(true) }}>
             <Eye className="h-3 w-3" />
           </Button>
           <Button
@@ -393,7 +400,32 @@ export default function PurchaseOrdersPage() {
                                 ))}
                               </SelectContent>
                             </Select>
-                            <FormMessage /> 
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="purchaseOrder.batch_no"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Batch Number</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-batch">
+                                  <SelectValue placeholder="Select batch" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {batches?.map((batch: any) => (
+                                  <SelectItem key={batch} value={String(batch)}>
+                                    {batch}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
@@ -742,6 +774,38 @@ export default function PurchaseOrdersPage() {
                 >
                   {statusUpdateMutation.isPending ? "Updating..." : "Update Status"}
                 </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>View Purchase Order - {selectedProduction?.po_no}</DialogTitle>
+          </DialogHeader>
+          {selectedProduction && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <p>Indent Number: {selectedProduction.indent_no}</p>
+                <p>Vendor: {selectedProduction.vendor_name}</p>
+                <p>Created At: {new Date(selectedProduction.created_at).toLocaleDateString()}</p>
+                <div>
+                  {selectedProduction.items.map((item: any, index: number) => (
+                    <div key={item.id}>
+                      <p className="font-bold pt-2">Purchase Order Item {index + 1}</p>
+                      <p>Material: {item.raw_material_name} - {item.raw_material_code}</p>
+                      <p>Quantity: {item.qty} {item.uom}</p>
+                      <p>Price: {item.rate}</p>
+                      <p>Received: {item.received_qty || 0}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Current Status: <StatusBadge status={selectedProduction.status || "draft"} size="sm" />
+                </p>
               </div>
             </div>
           )}
