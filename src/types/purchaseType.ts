@@ -7,6 +7,7 @@ export interface PurchaseOrderItem {
   
   export interface PurchaseOrder {
     id?: string;
+    purchase_order_id?: string;
     po_no: string;
     vendor_id: string;
     total_value: number;

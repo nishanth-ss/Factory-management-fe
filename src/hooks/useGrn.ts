@@ -80,8 +80,8 @@ export const useUpdateGrn = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  return useMutation<GrnCreateResponse, Error, { id: string; status: string }>({
-    mutationFn: ({ id, status }) => apiRequest<GrnCreateResponse>("PUT", `/grns/${id}`, { status }),
+  return useMutation<GrnCreateResponse, Error, { id: string; data: GrnCreatePayload }>({
+    mutationFn: ({ id, data }) => apiRequest<GrnCreateResponse>("PUT", `/grns/${id}`, data),
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["grns"] });
       toast(res.message, { variant: "success" });
