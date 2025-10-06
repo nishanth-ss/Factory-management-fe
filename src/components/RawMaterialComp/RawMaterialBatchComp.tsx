@@ -91,7 +91,6 @@ export function RawMaterialBatchesDialog({
   const productsData = products?.result || [];
 
   const handleSubmit = (data: BatchFormData) => {
-
     if (selectedBatch?.id ?? "") {
       updateBatch.mutate({ id: selectedBatch?.id ?? "", data: data }, {
         onSuccess: () => {
@@ -112,7 +111,12 @@ export function RawMaterialBatchesDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={() => {onOpenChange(false), setSelectedBatch && setSelectedBatch({batch_no: "", product_id: "", start_date: "", end_date: "", status: "planned", notes: ""})}}>
+    <Dialog open={open} onOpenChange={(isOpen) => { 
+      onOpenChange(isOpen); 
+      if (!isOpen) { 
+        setSelectedBatch && setSelectedBatch({ batch_no: "", product_id: "", start_date: "", end_date: "", status: "planned", notes: ""}); 
+      }
+    }}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Raw Material Batches</DialogTitle>
@@ -153,7 +157,7 @@ export function RawMaterialBatchesDialog({
                       </FormControl>
                       <SelectContent>
                         {productsData.map((m: any) => (
-                          <SelectItem key={m.id} value={m.id}>
+                          <SelectItem key={m.id} value={String(m.id)}>
                             {m.product_name} ({m.product_code})
                           </SelectItem>
                         ))}
@@ -213,7 +217,7 @@ export function RawMaterialBatchesDialog({
               />
 
                   {/* Status */}
-                  {selectedBatch?.product_id && <FormField
+                  {form.watch('product_id') && <FormField
                 control={form.control}
                 name={`status`}
                 render={({ field }) => (

@@ -8,7 +8,8 @@ export interface RawMaterialBatchType {
     start_date: string;            
     end_date: string;        
     status?: string;
-    notes?: string;       
+    notes?: string;    
+    raw_material_name?: string;   
   }
   
   // 🔹 Response when creating/updating a batch
