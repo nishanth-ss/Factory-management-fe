@@ -111,7 +111,7 @@ export default function GRNForm({ onSubmit, setIsCreateDialogOpen, selectedGrn,s
     if (!selectedPO) return; 
     const payload: GrnCreatePayload = {
       ...data,
-      po_no: selectedPO?.po_no ?? String((selectedGrn as any)?.po_no ?? ""),
+      purchase_order_id: selectedPO?.id ?? String((selectedGrn as any)?.id ?? ""),
     };
     createGrnMutation.mutate(payload,{
       onSuccess: () => {
