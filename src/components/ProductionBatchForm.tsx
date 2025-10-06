@@ -15,55 +15,45 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
 import { useRawMaterialBatches } from "@/hooks/useRawMaterialBatch";
-import { GetALLProductionBatch, useCreateProduction } from "@/hooks/useProduction";
+import { useCreateProduction } from "@/hooks/useProduction";
 import type { ProductionType } from "@/types/productionTypes";
+import { useProducts } from "@/hooks/useProduct";
+import { useRawMaterials } from "@/hooks/useRawMaterial";
 
 // Proper schema for the form with material planning
 const materialPlanSchema = z.object({
-  materialId: z.string().min(1, "Material is required"),
-  plannedConsumption: z.number().positive("Consumption must be positive"),
-  notes: z.string().optional(),
+  raw_material_id: z.string().min(1, "Material is required"),
+  qty_consumed: z.number().positive("Consumption must be positive"),
+  rate: z.number().positive("Rate must be positive"),
 });
 
 const operationExpenseSchema = z.object({
-  expense_type: z
+  expense_category: z
     .string()
-    .min(1, "Expense type is required"), // Labour, Electricity, Water Bill, etc.
-  amount: z
+    .min(1, "Expense category is required"), // Labour, Electricity, Water Bill, etc.
+  rate: z
     .number()
-    .positive("Amount must be greater than 0"),
-  expense_date: z
-    .date()
-    .refine((val) => val !== undefined && val !== null, {
-      message: "Expense date is required",
-    }),
-  labour_type: z
-    .enum(["skilled", "unskilled"])
-    .optional(), // nullable in DB, so optional here
-  labour_count: z
-    .number()
-    .int()
-    .positive("Labour count must be positive")
-    .optional(),
-  category: z.string().optional(), // Operations, Maintenance, etc.
-  remarks: z.string().optional(),
+    .positive("Rate must be greater than 0"),
+  qty: z.number().optional(),
+  description: z.string().optional(),
 });
 
 const productionBatchFormSchema = z
   .object({
-    batchNo: z.string().min(1, "Batch number is required"),
-    startDate: z.date().optional(),
-    endDate: z.date().optional(),
-    articleSku: z.string().min(1, "Article SKU is required"),
-    plannedQty: z.number().positive("Planned quantity must be positive"),
+    batch_no: z.string().min(1, "Batch number is required"),
+    product_id: z.string().min(1, "Product is required"),
+    start_date: z.date().optional(),
+    end_date: z.date().optional(),
+    article_sku: z.string().min(1, "Article SKU is required"),
+    planned_qty: z.number().positive("Planned quantity must be positive"),
     materials: z.array(materialPlanSchema).optional(),
     operationExpenses: z.array(operationExpenseSchema).optional(),
   })
   .refine(
-    (data) => !data.endDate || !data.startDate || data.endDate >= data.startDate,
+    (data) => !data.end_date || !data.start_date || data.end_date >= data.start_date,
     {
       message: "End date must be after start date",
-      path: ["endDate"],
+      path: ["end_date"],
     }
   );
 
@@ -77,21 +67,25 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
   // const { data: batches } = useRawMaterialBatches({ page: 1, limit: "all", search: "" });
   // const batchesData = batches?.data ?? [];
   const createProductionMutation = useCreateProduction();
-  const productionBatch = GetALLProductionBatch();
-  const productionBatchData: any = productionBatch?.data?.data ?? [];
+  const { data: batches } = useRawMaterialBatches({});
+  const productionBatchData = batches?.data ?? [];
+
+  const { data: products } = useProducts({});
+  const productsData = products?.result ?? [];
 
   const form = useForm<ProductionBatchFormData>({
     resolver: zodResolver(productionBatchFormSchema),
     defaultValues: {
-      batchNo: "",
-      articleSku: "",
-      plannedQty: 0,
+      batch_no: "",
+      product_id: "",
+      article_sku: "",
+      planned_qty: 0,
       materials: [],
       operationExpenses: [],
     },
   });
 
-  const { data: materials } = useRawMaterialBatches({ page: 1, limit: "all", search: "" });
+  const { data: materials } = useRawMaterials({ page: 1, limit: "all", search: "" });
   const materialsData = materials?.data ?? [];
 
   // Use field array for materials
@@ -124,32 +118,32 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
 
   // Auto-generate batch number on mount
   useEffect(() => {
-    form.setValue('batchNo', generateBatchNo());
+    form.setValue('batch_no', generateBatchNo());
   }, [form]);
 
   const addMaterial = () => {
-    append({ materialId: "", plannedConsumption: 0, notes: "" });
+    append({ raw_material_id: "", qty_consumed: 0, rate: 0 });
   };
 
   const onSubmit = (data: ProductionBatchFormData) => {
     const payload: ProductionType = {
-      batch_no: data.batchNo,
-      article_sku: data.articleSku,
-      planned_qty: data.plannedQty,
-      start_date: data.startDate ? data.startDate.toISOString() : "",
-      end_date: data.endDate ? data.endDate.toISOString() : "",
+      batch_no: data.batch_no,
+      product_id: data.product_id,
+      article_sku: data.article_sku,
+      planned_qty: data.planned_qty,
+      start_date: data.start_date ? data.start_date.toISOString() : "",
+      end_date: data.end_date ? data.end_date.toISOString() : "",
       status: "planned",
       batch_consumptions: data.materials?.map((m) => ({
-        raw_material_batch_id: m.materialId,
-        qty_consumed: m.plannedConsumption,
-        notes: m.notes ?? "",
+        raw_material_id: m.raw_material_id,
+        qty_consumed: m.qty_consumed,
+        rate: m.rate,
       })) ?? [] as any,
       operation_expenses: data.operationExpenses?.map((e) => ({
-        expense_type: e.expense_type,
-        amount: e.amount,
-        expense_date: e.expense_date,
-        remarks: e.remarks,
-        category: e.category,
+        expense_category: e.expense_category,
+        qty: e.qty,
+        rate: e.rate,
+        description: e.description,
       })) ?? [] as any,
     };
     createProductionMutation.mutate(payload, {
@@ -160,7 +154,7 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
   };
 
   const addExpense = () => {
-    appendExpense({ expense_type: "", amount: 0, expense_date: new Date() });
+    appendExpense({ expense_category: "", rate: 0, qty: 0, description: "" });
   };
 
   return (
@@ -170,7 +164,7 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
           {/* Batch Number */}
           <FormField
             control={form.control}
-            name="batchNo"
+            name="batch_no"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Batch Number</FormLabel>
@@ -183,9 +177,38 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
                       <SelectValue placeholder="Select batch number" />
                     </SelectTrigger>
                     <SelectContent>
-                      {productionBatchData?.map((batch: string,index: number) => (
-                        <SelectItem key={index} value={batch}>
-                          {batch}
+                      {productionBatchData?.map((batch: any, index: number) => (
+                        <SelectItem key={index} value={batch.id}>
+                          {batch.batch_no}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Batch Number */}
+          <FormField
+            control={form.control}
+            name="product_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Product</FormLabel>
+                <FormControl>
+                  <Select
+                    {...field}
+                    onValueChange={(value) => field.onChange(value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select product" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {productsData?.map((product: any, index: number) => (
+                        <SelectItem key={index} value={product?.id}>
+                          {product?.product_name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -199,7 +222,7 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
           {/* Article SKU */}
           <FormField
             control={form.control}
-            name="articleSku"
+            name="article_sku"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Article SKU</FormLabel>
@@ -214,7 +237,7 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
           {/* Planned Quantity */}
           <FormField
             control={form.control}
-            name="plannedQty"
+            name="planned_qty"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Planned Quantity</FormLabel>
@@ -250,7 +273,7 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
-            name="startDate"
+            name="start_date"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Start Date (Optional)</FormLabel>
@@ -291,7 +314,7 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
 
           <FormField
             control={form.control}
-            name="endDate"
+            name="end_date"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Expected End Date (Optional)</FormLabel>
@@ -356,10 +379,10 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
               </p>
             ) : (
               expenseFields.map((expField, index) => (
-                <div key={expField.id} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border rounded-lg">
+                <div key={expField.id} className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr_1fr_50px] gap-4 p-4 border rounded-lg">
                   <FormField
                     control={form.control}
-                    name={`operationExpenses.${index}.expense_type`}
+                    name={`operationExpenses.${index}.expense_category`}
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Expense Type</FormLabel>
@@ -373,10 +396,10 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
 
                   <FormField
                     control={form.control}
-                    name={`operationExpenses.${index}.amount`}
+                    name={`operationExpenses.${index}.qty`}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Amount</FormLabel>
+                        <FormLabel>Quantity</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
@@ -386,7 +409,7 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
                             onChange={(e) => field.onChange(e.target.valueAsNumber)}
                             onWheel={(e) => e.currentTarget.blur()}
                             placeholder="0"
-                            data-testid={`input-expense-amount-${index}`}
+                            data-testid={`input-expense-qty-${index}`}
                           />
                         </FormControl>
                         <FormMessage />
@@ -396,53 +419,21 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
 
                   <FormField
                     control={form.control}
-                    name={`operationExpenses.${index}.expense_date`}
+                    name={`operationExpenses.${index}.rate`}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Expense Date</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant="outline"
-                                className={cn(
-                                  "w-full pl-3 text-left font-normal",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                                data-testid={`button-expense-date-${index}`}
-                              >
-                                {field.value ? (
-                                  format(field.value, "PPP")
-                                ) : (
-                                  <span>Pick a date</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={field.value || undefined}
-                              onSelect={field.onChange}
-                              disabled={(date) => date < new Date("1900-01-01")}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name={`operationExpenses.${index}.category`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Category</FormLabel>
+                        <FormLabel>Rate</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="Enter category" />
+                          <Input
+                            type="number"
+                            {...field}
+                            value={field.value === 0 || field.value === undefined ? "" : field.value}
+                            // value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            placeholder="0"
+                            data-testid={`input-expense-rate-${index}`}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -451,12 +442,12 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
 
                   <FormField
                     control={form.control}
-                    name={`operationExpenses.${index}.remarks`}
+                    name={`operationExpenses.${index}.description`}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Remarks</FormLabel>
+                        <FormLabel>Description</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="Enter remarks" />
+                          <Input {...field} placeholder="Enter description" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -510,7 +501,7 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
                 <div key={field.id} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border rounded-lg">
                   <FormField
                     control={form.control}
-                    name={`materials.${index}.materialId`}
+                    name={`materials.${index}.raw_material_id`}
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Material</FormLabel>
@@ -522,7 +513,7 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
                             <SelectContent>
                               {materialsData.map((mat) => (
                                 <SelectItem key={mat.id} value={mat.id || ""}>
-                                  {mat.raw_material_name}
+                                  {mat.name}- {mat.code}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -535,7 +526,7 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
 
                   <FormField
                     control={form.control}
-                    name={`materials.${index}.plannedConsumption`}
+                    name={`materials.${index}.qty_consumed`}
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Planned Consumption</FormLabel>
@@ -558,16 +549,20 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
 
                   <FormField
                     control={form.control}
-                    name={`materials.${index}.notes`}
+                    name={`materials.${index}.rate`}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Notes (Optional)</FormLabel>
+                        <FormLabel>Rate</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="Notes..."
+                            type="number"
+                            placeholder="Rate"
                             {...field}
-                            value={field.value || ''}
-                            data-testid={`input-notes-${index}`}
+                            value={field.value === 0 || field.value === undefined ? "" : field.value}
+                            // value={field.value?.toString() || ''}
+                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                            data-testid={`input-rate-${index}`}
+                            onWheel={(e) => e.currentTarget.blur()}
                           />
                         </FormControl>
                         <FormMessage />

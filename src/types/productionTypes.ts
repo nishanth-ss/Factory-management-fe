@@ -17,6 +17,7 @@ export interface ProductionOperationExpense {
   // 🔹 Single production record
   export interface ProductionType {
     batch_no: string;                       // Production batch number
+    product_id: string;                     // Product ID
     article_sku: string;                    // SKU of the product being produced
     planned_qty: number;                    // Planned quantity to produce
     start_date: string;                     // Production start date (ISO string)
