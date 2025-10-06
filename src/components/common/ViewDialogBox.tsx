@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 interface ViewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  handleClose?: () => void;
   title: string;
   subtitle?: string;
   children: ReactNode;
@@ -14,6 +15,7 @@ interface ViewDialogProps {
 export function ViewDialog({
   open,
   onOpenChange,
+  handleClose,
   title,
   subtitle,
   children,
@@ -21,7 +23,7 @@ export function ViewDialog({
   maxHeight = "max-h-[90vh]",
 }: ViewDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose ? handleClose : onOpenChange}>
       <DialogContent className={`${maxWidth} ${maxHeight} overflow-y-auto`}>
         <DialogHeader>
           <DialogTitle>

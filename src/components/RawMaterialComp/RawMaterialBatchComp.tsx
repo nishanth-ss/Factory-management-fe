@@ -7,7 +7,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,259 +18,237 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useProducts } from "@/hooks/useProduct";
+import { useEffect } from "react";
+import { useCreateBatch, useUpdateBatch } from "@/hooks/useRawMaterialBatch";
 
 // ---------------- Schema ----------------
-const batchSchema = z.object({
-  batches: z
-    .array(
-      z.object({
-        batch_no: z.string().min(1, "Batch number is required"),
-        material: z.string().min(1, "Material is required"),
-        qty_received: z.number().min(0.01, "Quantity must be greater than 0"),
-        cost_per_unit: z.number().min(0, "Cost per unit must be >= 0"),
-        mfg_date: z.string().min(1, "Manufacturing date is required"),
-        exp_date: z.string().min(1, "Expiry date is required"),
-        location: z.string().min(1, "Location is required"),
-      })
-    )
-    .min(1, "At least one batch is required"),
-});
+const batchSchema =
+  z.object({
+    batch_no: z.string().min(1, "Batch number is required"),
+    product_id: z.string().min(1, "Product is required"),
+    start_date: z.string().min(1, "Start date is required"),
+    end_date: z.string().min(1, "End date is required"),
+    status: z.string().min(1, "Status is required"),
+    notes: z.string().optional(),
+  })
 
 type BatchFormData = z.infer<typeof batchSchema>;
+type BatchFormDataWithId = BatchFormData & { id?: string };
 
 export function RawMaterialBatchesDialog({
   open,
   onOpenChange,
-  onSave,
-  materials,
+  selectedBatch,
+  setSelectedBatch,
 }: {
   open: boolean;
   onOpenChange: (value: boolean) => void;
-  onSave: (data: BatchFormData["batches"]) => void;
-  materials: { id: string; name: string; code: string }[];
+  onSave?: (data: BatchFormData) => void;
+  selectedBatch?: BatchFormDataWithId;
+  setSelectedBatch?: (batch: any) => void;
 }) {
   const form = useForm<BatchFormData>({
     resolver: zodResolver(batchSchema),
     defaultValues: {
-      batches: [
-        {
-          batch_no: "",
-          material: "",
-          qty_received: 0,
-          cost_per_unit: 0,
-          mfg_date: "",
-          exp_date: "",
-          location: "",
-        },
-      ],
+      batch_no: "",
+      product_id: "",
+      start_date: "",
+      end_date: "",
+      status: "planned",
+      notes: "",
     },
   });
 
-  const addBatch = () => {
-    const batches = form.getValues("batches");
-    form.setValue("batches", [
-      ...batches,
-      {
-        batch_no: "",
-        material: "",
-        qty_received: 0,
-        cost_per_unit: 0,
-        mfg_date: "",
-        exp_date: "",
-        location: "",
-      },
-    ]);
-  };
+  const createBatch = useCreateBatch();
+  const updateBatch = useUpdateBatch();
 
-  const removeBatch = (index: number) => {
-    const batches = form.getValues("batches");
-    if (batches.length > 1) {
-      form.setValue(
-        "batches",
-        batches.filter((_, i) => i !== index)
-      );
+  useEffect(() => {
+    if (Object.keys(selectedBatch || {}).length > 0) {
+        // Reset form when dialog opens — either with selectedProduct or empty values
+        form.reset({
+            batch_no: selectedBatch?.batch_no,
+            product_id: selectedBatch?.product_id,
+            start_date: selectedBatch?.start_date ? new Date(selectedBatch?.start_date).toISOString().split("T")[0] : "",
+            end_date: selectedBatch?.end_date ? new Date(selectedBatch?.end_date).toISOString().split("T")[0] : "",
+            status: selectedBatch?.status,
+            notes: selectedBatch?.notes,
+        });
+    } else {
+        // Creating new
+        form.reset({
+            batch_no: "",
+            product_id: "",
+            start_date: "",
+            end_date: "",
+            status: "planned",
+            notes: "",
+        });
+    }
+}, [selectedBatch, form]);
+
+  const { data: products } = useProducts({});
+  const productsData = products?.result || [];
+
+  const handleSubmit = (data: BatchFormData) => {
+
+    if (selectedBatch?.id ?? "") {
+      updateBatch.mutate({ id: selectedBatch?.id ?? "", data: data }, {
+        onSuccess: () => {
+          onOpenChange(false);
+          form.reset();
+          setSelectedBatch && setSelectedBatch({batch_no: "", product_id: "", start_date: "", end_date: "", status: "planned", notes: ""});
+        },
+      });
+    } else {
+      createBatch.mutate(data, {
+        onSuccess: () => {
+          onOpenChange(false);
+          form.reset();
+          setSelectedBatch && setSelectedBatch({batch_no: "", product_id: "", start_date: "", end_date: "", status: "planned", notes: ""});
+        },
+      });
     }
   };
 
-  const handleSubmit = (data: BatchFormData) => {
-    onSave(data.batches);
-    onOpenChange(false);
-  };
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl h-[calc(100vh-10rem)] overflow-y-auto">
+    <Dialog open={open} onOpenChange={() => {onOpenChange(false), setSelectedBatch && setSelectedBatch({batch_no: "", product_id: "", start_date: "", end_date: "", status: "planned", notes: ""})}}>
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Raw Material Batches</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            {form.watch("batches").map((_, index) => (
-              <div
-                key={index}
-                className="grid grid-cols-1 md:grid-cols-4 gap-4 border rounded-md p-4"
-              >
-                {/* Batch No */}
-                <FormField
-                  control={form.control}
-                  name={`batches.${index}.batch_no`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Batch No</FormLabel>
+            <div
+              className="grid grid-cols-1 md:grid-cols-4 gap-4 border rounded-md p-4"
+            >
+              {/* Batch No */}
+              <FormField
+                control={form.control}
+                name={`batch_no`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Batch No</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="BATCH-001" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Product */}
+              <FormField
+                control={form.control}
+                name={`product_id`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Product</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <Input {...field} placeholder="BATCH-001" />
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select product" />
+                        </SelectTrigger>
                       </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                      <SelectContent>
+                        {productsData.map((m: any) => (
+                          <SelectItem key={m.id} value={m.id}>
+                            {m.product_name} ({m.product_code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                {/* Material */}
+                {/* Start Date */}
                 <FormField
-                  control={form.control}
-                  name={`batches.${index}.material`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Material</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select material" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {materials.map((m) => (
-                            <SelectItem key={m.id} value={m.id}>
-                              {m.name} ({m.code})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                control={form.control}
+                name={`start_date`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Start Date</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="date" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                {/* Qty Received */}
-                <FormField
-                  control={form.control}
-                  name={`batches.${index}.qty_received`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Qty Received</FormLabel>
+              {/* End Date */}
+              <FormField
+                control={form.control}
+                name={`end_date`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>End Date</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="date" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_200px] gap-4">
+
+              {/* notes */}
+              <FormField
+                control={form.control}
+                name={`notes`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Notes" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+                  {/* Status */}
+                  {selectedBatch?.product_id && <FormField
+                control={form.control}
+                name={`status`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={field.value ?? ""}
-                          onChange={(e) =>
-                            field.onChange(
-                              e.target.value === "" ? "" : parseFloat(e.target.value)
-                            )
-                          }
-                        />
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
                       </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Cost Per Unit */}
-                <FormField
-                  control={form.control}
-                  name={`batches.${index}.cost_per_unit`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Cost Per Unit</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={field.value === 0 || field.value === undefined ? "" : field.value}
-                          // value={field.value ?? ""}
-                          onChange={(e) =>
-                            field.onChange(
-                              e.target.value === "" ? "" : parseFloat(e.target.value)
-                            )
-                          }
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Mfg Date */}
-                <FormField
-                  control={form.control}
-                  name={`batches.${index}.mfg_date`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Mfg Date</FormLabel>
-                      <FormControl>
-                        <Input {...field} type="date" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Exp Date */}
-                <FormField
-                  control={form.control}
-                  name={`batches.${index}.exp_date`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Exp Date</FormLabel>
-                      <FormControl>
-                        <Input {...field} type="date" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Location */}
-                <FormField
-                  control={form.control}
-                  name={`batches.${index}.location`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Location</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="Warehouse A" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Remove Button */}
-                <div className="flex items-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => removeBatch(index)}
-                    disabled={form.watch("batches").length === 1}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-
-            {/* Add Batch */}
-            <Button type="button" variant="outline" onClick={addBatch}>
-              <Plus className="h-4 w-4 mr-2" /> Add Batch
-            </Button>
+                      <SelectContent>
+                        {[
+                            {id: "planned", name: "Planned"},
+                            {id: "in_progress", name: "In Progress"},
+                            {id: "completed", name: "Completed"},
+                            {id: "QC", name: "QC"},
+                        ].map((m: any) => (
+                          <SelectItem key={m.id} value={m.id}>
+                            {m.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />}
+            </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="outline" onClick={() => {onOpenChange(false), setSelectedBatch && setSelectedBatch({batch_no: "", product_id: "", start_date: "", end_date: "", status: "", notes: ""})}}>
                 Cancel
               </Button>
-              <Button type="submit">Save Batches</Button>
+              <Button type="submit">{selectedBatch?.batch_no ? "Update Batch" : "Save Batch"}</Button>
             </DialogFooter>
           </form>
         </Form>

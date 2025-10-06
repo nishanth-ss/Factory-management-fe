@@ -21,6 +21,8 @@ import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/not-found";
 import UsersPage from "@/pages/UsersPage";
 import NotAuthorized from "@/pages/NotAuthorized";
+import ProductPage from "./pages/ProductPage.tsx";
+import BatchPage from "./pages/BatchPage";
 
 function Router() {
   return (
@@ -29,6 +31,8 @@ function Router() {
       <Route path="/" component={DashboardPage} />
       <Route path="/indents" component={IndentsPage} />
       <Route path="/materials" component={RawMaterialsPage} />
+      <Route path="/product" component={ProductPage} />
+      <Route path="/batches" component={BatchPage} />
       <Route path="/purchase-orders" component={PurchaseOrdersPage} />
       <Route path="/grn" component={GRNPage} />
       <Route path="/production" component={ProductionPage} />

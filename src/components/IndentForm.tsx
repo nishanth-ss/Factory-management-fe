@@ -1,75 +1,98 @@
-import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useCreateIndent } from "@/hooks/useIndent";
-import type { RootState } from "@/store/store";
-import { useSelector } from "react-redux";
+import { useCreateIndent, useUpdateIndent } from "@/hooks/useIndent";
 import { getRoleIdFromAuth } from "@/lib/utils";
+import { useRawMaterialBatches } from "@/hooks/useRawMaterialBatch";
+import type { IndentType } from "@/types/indent";
+import { useEffect } from "react";
 
 const indentSchema = z.object({
   indent_no: z.string().min(1, "Indent number is required"),
+  batch_no: z.string().min(1, "Batch number is required"),
   required_by: z.string().min(1, "Required by date is required"),
   priority: z.enum(["low", "medium", "high"]),
   notes: z.string().optional(),
-  items: z.array(z.object({
-    raw_material_id: z.string().min(1, "Material is required"),
-    qty: z.number().min(0.01, "Quantity must be greater than 0"),
-    uom: z.string().min(1, "Unit is required"),
-    notes: z.string().optional(),
-  })).min(1, "At least one item is required"),
-  status: z.enum(["draft", "submitted", "approved", "rejected", "in-progress", "in_process", "completed", "planned", "qc", "released", "closed"]),
+  status: z.enum(["draft", "pending", "submitted", "approved", "rejected", "in-progress", "in_process", "completed", "planned", "qc", "released", "partially_received", "closed"]),
 });
 
 type IndentFormData = z.infer<typeof indentSchema>;
 
-export default function IndentForm({ setIsCreateDialogOpen }: { setIsCreateDialogOpen: (value: boolean) => void }) {
-  const [items, setItems] = useState([{ id: 1, raw_material_id: "", qty: 0, uom: "", notes: "" }]);
+export default function IndentForm({ setIsCreateDialogOpen, selectedIndent }: { setIsCreateDialogOpen: (value: boolean) => void, selectedIndent?: IndentType }) {
   const createIndent = useCreateIndent();
-  const { rawMaterialResponse } = useSelector((state: RootState) => state.manufacturing);
-  const materials = rawMaterialResponse?.data || [];
+  const updateIndent = useUpdateIndent();
+  const { data: batches } = useRawMaterialBatches({ page: 1, limit: 1000, search: "" });
+  const batchesData = batches?.data || [];
 
   const form = useForm<IndentFormData>({
     resolver: zodResolver(indentSchema),
     defaultValues: {
       indent_no: "",
+      batch_no: "",
       required_by: "",
       priority: "medium",
       notes: "",
-      items: [{ raw_material_id: "", qty: 0, uom: "", notes: "" }],
       status: "draft",
     },
   });
 
-  const addItem = () => {
-    const newItem = { id: Date.now(), raw_material_id: "", qty: 0, uom: "", notes: "" };
-    setItems([...items, newItem]);
-    form.setValue("items", [...form.getValues("items"), { raw_material_id: "", qty: 0, uom: "", notes: "" }]);
-  };
-
-  const removeItem = (index: number) => {
-    if (items.length > 1) {
-      const newItems = items.filter((_, i) => i !== index);
-      setItems(newItems);
-      const formItems = form.getValues("items").filter((_, i) => i !== index);
-      form.setValue("items", formItems);
+  useEffect(() => {
+    if (!selectedIndent) {
+      form.reset({
+        indent_no: "",
+        batch_no: "",
+        required_by: "",
+        priority: "medium",
+        notes: "",
+        status: "draft",
+      });
+      return;
     }
-  };
+
+    // Single reset to avoid overwriting values set by setValue
+    form.reset({
+      indent_no: selectedIndent.indent_no ?? "",
+      batch_no: selectedIndent.batch_no ?? "",
+      required_by: selectedIndent.required_by
+        ? new Date(selectedIndent.required_by).toISOString().split("T")[0]
+        : "",
+      priority: (selectedIndent.priority ? String(selectedIndent.priority).toLowerCase() : "medium") as any,
+      notes: selectedIndent.notes ?? "",
+      status: (selectedIndent.status ? String(selectedIndent.status).toLowerCase() : "draft") as any,
+    });
+  }, [selectedIndent, form]);
+
+  // Ensure batch_no shows selected value once options are loaded (no full reset)
+  useEffect(() => {
+    if (!selectedIndent) return;
+    const current = form.getValues("batch_no");
+    if ((!current || current === "") && (selectedIndent.batch_no ?? "") !== "" && (batchesData?.length ?? 0) > 0) {
+      form.setValue("batch_no", selectedIndent.batch_no as any, { shouldDirty: false, shouldValidate: false });
+    }
+  }, [batchesData, selectedIndent]);
 
   const handleSubmit = (data: IndentFormData) => {
-    createIndent.mutate({ ...data, status: getRoleIdFromAuth() === 1 ? "approved" : "pending" }, {
-      onSuccess: () => {
-        form.reset();
-        setIsCreateDialogOpen(false);
-      },
-    });
+    if (selectedIndent) {
+      updateIndent.mutate({ id: selectedIndent.id ?? "", data: { ...data } }, {
+        onSuccess: () => {
+          form.reset();
+          setIsCreateDialogOpen(false);
+        },
+      });
+    } else {
+      createIndent.mutate(data, {
+        onSuccess: () => {
+          form.reset();
+          setIsCreateDialogOpen(false);
+        },
+      });
+    }
   };
 
   const handleDraft = (data: IndentFormData) => {
@@ -103,6 +126,30 @@ export default function IndentForm({ setIsCreateDialogOpen }: { setIsCreateDialo
 
               <FormField
                 control={form.control}
+                name="batch_no"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Batch Number</FormLabel>
+                    <Select key={`batch-${field.value ?? ""}`} value={field.value ?? ""} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select batch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {batchesData?.map((batch: any) => (
+                          <SelectItem key={batch.id} value={batch.id}>
+                            {batch.batch_no}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+
+              <FormField
+                control={form.control}
                 name="required_by"
                 render={({ field }) => (
                   <FormItem>
@@ -121,7 +168,7 @@ export default function IndentForm({ setIsCreateDialogOpen }: { setIsCreateDialo
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="block pb-1">Priority</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select key={`priority-${field.value ?? ""}`} onValueChange={field.onChange} value={field.value ?? "medium"}>
                       <FormControl>
                         <SelectTrigger data-testid="select-priority">
                           <SelectValue placeholder="Select priority" />
@@ -137,120 +184,47 @@ export default function IndentForm({ setIsCreateDialogOpen }: { setIsCreateDialo
                   </FormItem>
                 )}
               />
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium">Materials Required</h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addItem}
-                  data-testid="button-add-item"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Item
-                </Button>
-              </div>
-
-              {items.map((item, index) => (
-                <div key={item.id} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-md items-center">
-                  <FormField
-                    control={form.control}
-                    name={`items.${index}.raw_material_id`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="block pb-1">Material</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid={`select-material-${index}`}>
-                              <SelectValue placeholder="Select material" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {materials?.map((material) => (
-                              <SelectItem key={material.id} value={material.id}>
-                                {material.name} ({material.code})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name={`items.${index}.qty`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="block pb-1">Quantity</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={field.value === 0 || field.value === undefined ? "" : field.value}
-                            placeholder="0"
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              field.onChange(val === "" ? undefined : parseFloat(val));
-                            }}
-                            data-testid={`input-qty-${index}`}
-                            onWheel={(e) => e.currentTarget.blur()}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
 
 
-                  <FormField
-                    control={form.control}
-                    name={`items.${index}.uom`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="block pb-1">Unit</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="KG" data-testid={`input-uom-${index}`} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name={`items.${index}.notes`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="block pb-1">Notes</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="Optional notes" data-testid={`input-notes-${index}`} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="flex items-end mt-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => removeItem(index)}
-                      disabled={items.length === 1}
-                      data-testid={`button-remove-${index}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+              {/* Status */}
+              {getRoleIdFromAuth() === 1 && <FormField
+                control={form.control}
+                name={`status`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select key={`status-${field.value}`} onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-status">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {[
+                          { id: "draft", name: "Draft" },
+                          { id: "pending", name: "Pending" },
+                          { id: "submitted", name: "Submitted" },
+                          { id: "approved", name: "Approved" },
+                          { id: "rejected", name: "Rejected" },
+                          { id: "in-progress", name: "In Progress" },
+                          { id: "in_process", name: "In Process" },
+                          { id: "completed", name: "Completed" },
+                          { id: "planned", name: "Planned" },
+                          { id: "qc", name: "QC" },
+                          { id: "released", name: "Released" },
+                          { id: "partially_received", name: "Partially Received" },
+                          { id: "closed", name: "Closed" },
+                        ].map((m: any) => (
+                          <SelectItem key={m.id} value={m.id}>
+                            {m.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />}
             </div>
 
             <FormField
@@ -276,9 +250,9 @@ export default function IndentForm({ setIsCreateDialogOpen }: { setIsCreateDialo
               >
                 Save as Draft
               </Button>
-              <Button type="submit" data-testid="button-submit">
+             {getRoleIdFromAuth() === 1 && <Button type="submit" data-testid="button-submit">
                 Submit for Approval
-              </Button>
+              </Button>}
             </div>
           </form>
         </Form>

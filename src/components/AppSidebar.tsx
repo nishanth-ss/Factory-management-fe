@@ -14,6 +14,7 @@ import {
   Home,
   Package,
   FileText,
+  ShoppingBasket,
   ShoppingCart,
   Truck,
   Factory,
@@ -21,7 +22,8 @@ import {
   BarChart3,
   Users,
   Settings,
-  LogOut
+  LogOut,
+  ShieldMinus
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,6 +35,8 @@ import { logout } from "@/store/authSlice";
 const navigationItems = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Raw Materials", url: "/materials", icon: Package },
+  { title: "Product", url: "/product", icon: ShoppingBasket },
+  { title: "Batches", url: "/batches", icon: ShieldMinus },
   { title: "Indents", url: "/indents", icon: FileText },
   { title: "Purchase Orders", url: "/purchase-orders", icon: ShoppingCart },
   { title: "GRN", url: "/grn", icon: Truck },
@@ -58,7 +62,7 @@ export default function AppSidebar() {
   const roleString = (user?.role || "").toLowerCase();
   const roleId = roleString === "admin" ? 1 : 2;
 
-  
+
   const handleLogout = async () => {
     // Clear redux auth state
     dispatch(logout());

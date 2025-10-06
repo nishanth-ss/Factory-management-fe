@@ -2,27 +2,11 @@ export interface IndentType {
   id?: string;
   indent_no: string;
   required_by: string;
-  priority: string;
+  priority: "low" | "medium" | "high";
   notes?: string;
+  batch_no?: string;
   date?: string;
   status?: IndentStatus;
-  items: {
-    raw_material_id: string;
-    qty: number;
-    uom: string;
-    notes?: string;
-    purpose?: string;
-    raw_material?: {
-      id: string;
-      code: string;
-      name: string;
-      description: string;
-      uom: string;
-      category: string;
-      batchable: boolean;
-      reorder_level: number;
-    };
-  }[];
   requested_by?: string;
   created_at?: string;
   requested_by_name?: string;

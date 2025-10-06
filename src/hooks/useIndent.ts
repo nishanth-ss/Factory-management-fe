@@ -70,7 +70,7 @@ export const useUpdateIndent = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: (data: { id: string; status: string }) => apiRequest<IndentsApiResponse>("PUT", `/indent/${data.id}`, { status: data.status }),
+    mutationFn: (data: { id: string; data: IndentType }) => apiRequest<IndentsApiResponse>("PUT", `/indent/${data.id}`, data.data),
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["indents"] });
       toast(res?.message, { variant: "success" });
