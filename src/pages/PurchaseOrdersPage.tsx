@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import DataTable from "@/components/DataTable";
 import StatusBadge from "@/components/StatusBadge";
@@ -12,23 +12,22 @@ import { formatINR } from "@/lib/currency";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useSelector } from "react-redux";
-import type { RootState } from "@/store/store";
 import { usePurchaseOrders, useCreatePurchaseOrder, useUpdatePurchaseOrder } from "@/hooks/usePurchaseOrder";
 import { useDebounce } from "@/hooks/useDebounce";
 import FormattedDate from "@/lib/formatDate";
 import { getRoleIdFromAuth } from "@/lib/utils";
-import { useGetIndentById, useIndents } from "@/hooks/useIndent";
-import { GetALLProductionBatch } from "@/hooks/useProduction";
+import { useIndents } from "@/hooks/useIndent";
+import { useVendors } from "@/hooks/useVendor";
+import { useRawMaterials } from "@/hooks/useRawMaterial";
 
 const insertPurchaseOrderSchema = z.object({
   po_no: z.string().min(1, "PO Number is required"),
   vendor_id: z.string().uuid("Invalid vendor ID"),
   indent_id: z.string().min(1, "Indent Number is required"),
-  batch_no: z.string().min(1, "Batch Number is required"),
   status: z.enum(["draft", "submitted", "approved", "partially_received", "closed"]).optional(),
   total_value: z.number().min(0, "Total value cannot be negative").optional(),
   expected_delivery: z.string().optional(), // ISO date string from form
+  remarks: z.string().optional(),
 });
 
 // Schema for purchase order item
@@ -36,7 +35,6 @@ const insertPurchaseOrderItemSchema = z.object({
   rawMaterialId: z.string().min(1, "Material is required"),
   qty: z.number().positive("Quantity must be greater than 0"),
   rate: z.number().min(0, "Rate cannot be negative"),
-  uom: z.string().optional(),
   tempId: z.string().optional(), // Temporary field for frontend management
 });
 
@@ -45,54 +43,19 @@ const insertPurchaseOrderItemSchema = z.object({
 const createPurchaseOrderFormSchema = z.object({
   purchaseOrder: insertPurchaseOrderSchema.omit({ status: true }), // client sets status separately if needed
   items: z.array(insertPurchaseOrderItemSchema).min(1, "At least one item is required"),
+  status: z.enum(["draft", "submitted", "approved", "partially_received", "closed"]).optional(),
 });
 
 export type CreatePurchaseOrderFormData = z.infer<typeof createPurchaseOrderFormSchema>;
 
-// Columns for items kept outside; order columns will be defined inside component where handlers are accessible
-
-const purchaseOrderItemColumns = [
-  { key: "po_no", header: "PO Number", sortable: true },
-  { key: "material_code", header: "Material Code", sortable: true },
-  { key: "material_name", header: "Material Name", sortable: true },
-  {
-    key: "qty",
-    header: "Ordered Qty",
-    sortable: true,
-    render: (qty: any, row: any) => `${qty} ${row.uom || ''}`
-  },
-  {
-    key: "rate",
-    header: "Rate",
-    sortable: true,
-    render: (rate: any) => rate != null ? formatINR(String(rate)) : '-'
-  },
-  {
-    key: "received_qty",
-    header: "Received Qty",
-    sortable: true,
-    render: (qty: number, row: any) => `${qty} ${row.uom || ''}`
-  },
-  {
-    key: "value",
-    header: "Line Value",
-    sortable: true,
-    render: (_value: any, row: any) => {
-      const qty = Number(row.qty ?? 0);
-      const rate = Number(row.rate ?? 0);
-      return formatINR(String(qty * rate));
-    }
-  }
-];
-
 export default function PurchaseOrdersPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"orders" | "items">("orders");
   const [page, setPage] = useState(1);
   const rowsPerPage = 5;
-  const state = useSelector((state: RootState) => state.manufacturing);
-  const vendorResponse = state?.vendorResponse?.data;
-  const rawMaterialResponse = state?.rawMaterialResponse?.data;
+  const { data: vendors } = useVendors()
+  const vendorResponse = vendors?.data;
+  const { data: rawMaterials } = useRawMaterials({})
+  const rawMaterialResponse = rawMaterials?.data;
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedPO, setSelectedPO] = useState<any | null>(null);
   const [newStatus, setNewStatus] = useState<string>("");
@@ -109,8 +72,6 @@ export default function PurchaseOrdersPage() {
   const roleId = getRoleIdFromAuth();
   const { data: indentApiResponse } = useIndents();
   const indents = indentApiResponse?.data?.indents;
-  const { data: batchApiResponse } = GetALLProductionBatch();
-  const batches = batchApiResponse?.data;
 
   // Generate unique PO number
   const generatePONumber = () => {
@@ -128,17 +89,17 @@ export default function PurchaseOrdersPage() {
         po_no: generatePONumber(),
         vendor_id: "",
         indent_id: "",
-        batch_no: "",
         total_value: 0,
         expected_delivery: "",
+        remarks: "",
       },
       items: [{
         rawMaterialId: "",
         qty: 0,
-        uom: "",
         rate: 0,
         tempId: crypto.randomUUID(),
-      }]
+      }],
+      status: "draft",
     },
   });
 
@@ -148,30 +109,6 @@ export default function PurchaseOrdersPage() {
   });
 
   const watchedItems = form.watch("items");
-  const { data: indentData }: any = useGetIndentById(form.watch("purchaseOrder.indent_id"));
-
-
-  useEffect(() => {
-    if (indentData?.data?.items) {
-      const mapped = indentData.data.items.map((item: any) => ({
-        rawMaterialId: item.raw_material_id,
-        uom: item.uom,
-        qty: item.qty,
-        rate: item.rate,
-        tempId: crypto.randomUUID(),
-      }));
-
-      form.setValue("items", mapped, { shouldDirty: true, shouldValidate: true });
-      // optional: recalc total after items update
-      setTimeout(() => {
-        form.reset({
-          ...form.getValues(), // keeps purchaseOrder fields (incl. indent_id)
-          items: mapped,
-        });
-
-      }, 0);
-    }
-  }, [indentData]);
 
   // Calculate total value automatically
   const calculateTotal = () => {
@@ -189,7 +126,6 @@ export default function PurchaseOrdersPage() {
     const cleanedItems = (data.items as any[]).map(({ tempId, ...item }) => ({
       raw_material_id: item.rawMaterialId,
       qty: Number(item.qty || 0),
-      uom: item.uom || "",
       rate: Number(item.rate || 0),
     }));
 
@@ -200,6 +136,7 @@ export default function PurchaseOrdersPage() {
       expected_delivery: data.purchaseOrder.expected_delivery || "",
       indent_id: data.purchaseOrder.indent_id,
       items: cleanedItems,
+      status: data.status,
     };
 
     createMutation.mutate(payload as any, {
@@ -215,7 +152,6 @@ export default function PurchaseOrdersPage() {
           items: [{
             rawMaterialId: "",
             qty: 0,
-            uom: "",
             rate: 0,
             tempId: crypto.randomUUID(),
           }]
@@ -241,7 +177,7 @@ export default function PurchaseOrdersPage() {
   };
 
   const purchaseOrderColumns = [
-    { key: "po_no", header: "PO Number", sortable: true },
+    { key: "purchase_order_id", header: "PO Number", sortable: true },
     { key: "indent_no", header: "Indent Number", sortable: true },
     { key: "vendor_name", header: "Vendor", sortable: true },
     {
@@ -251,17 +187,17 @@ export default function PurchaseOrdersPage() {
       render: (status: string) => <StatusBadge status={status as any} size="sm" />
     },
     {
-      key: "total_value",
+      key: "total_amount",
       header: "Total Value",
       sortable: true,
       render: (value: any) => formatINR(String(value ?? 0))
     },
-    { key: "expected_delivery", header: "Expected Delivery", sortable: true, render: (date: string) => <FormattedDate date={date} /> },
+    { key: "expected_delivery", header: "Expected Delivery", sortable: true, render: (date: string) => <FormattedDate date={date} formatString="dd-MM-yyyy" /> },
     {
       key: "created_at",
       header: "Created Date",
       sortable: true,
-      render: (date: string) => <FormattedDate date={date} />
+      render: (date: string) => <FormattedDate date={date}  />
     },
     {
       key: "actions",
@@ -287,7 +223,6 @@ export default function PurchaseOrdersPage() {
   ];
 
   // Get all purchase order items with enriched data
-  const allPOItems: any[] = [];
   purchaseOrders.forEach((_po: any) => {
     // Note: In real implementation, you'd fetch PO items from separate endpoint
     // For now, showing structure for when items are available
@@ -302,26 +237,7 @@ export default function PurchaseOrdersPage() {
         </div>
 
         <div className="flex gap-2">
-          <div className="flex border rounded-lg p-1">
-            <Button
-              variant={activeTab === "orders" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setActiveTab("orders")}
-              data-testid="tab-orders"
-            >
-              Purchase Orders
-            </Button>
-            <Button
-              variant={activeTab === "items" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setActiveTab("items")}
-              data-testid="tab-items"
-            >
-              Order Items
-            </Button>
-          </div>
 
-          {activeTab === "orders" && (
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button data-testid="button-create-purchase-order">
@@ -407,31 +323,6 @@ export default function PurchaseOrdersPage() {
 
                       <FormField
                         control={form.control}
-                        name="purchaseOrder.batch_no"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Batch Number</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value ?? ""}>
-                              <FormControl>
-                                <SelectTrigger data-testid="select-batch">
-                                  <SelectValue placeholder="Select batch" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {batches?.map((batch: any) => (
-                                  <SelectItem key={batch} value={String(batch)}>
-                                    {batch}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
                         name="purchaseOrder.expected_delivery"
                         render={({ field }) => (
                           <FormItem>
@@ -453,6 +344,56 @@ export default function PurchaseOrdersPage() {
                       />
                     </div>
 
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] gap-4">
+                      <FormField
+                        control={form.control}
+                        name="purchaseOrder.remarks"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Remarks</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                data-testid="input-remarks"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {getRoleIdFromAuth() === 1 && <FormField
+                        control={form.control}
+                        name={`status`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Status</FormLabel>
+                            <Select key={`status-${field.value}`} onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-status">
+                                  <SelectValue placeholder="Select status" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {[
+                                  { id: "draft", name: "Draft" },
+                                  { id: "submitted", name: "Submitted" },
+                                  { id: "approved", name: "Approved" },
+                                  { id: "partially_received", name: "Partially Received" },
+                                  { id: "closed", name: "Closed" },
+                                ].map((m: any) => (
+                                  <SelectItem key={m.id} value={m.id}>
+                                    {m.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />}
+                    </div>
+
                     {/* Line Items */}
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
@@ -464,7 +405,6 @@ export default function PurchaseOrdersPage() {
                           onClick={() => append({
                             rawMaterialId: "",
                             qty: 0,
-                            uom: "",
                             rate: 0,
                             tempId: crypto.randomUUID(),
                           })}
@@ -481,21 +421,18 @@ export default function PurchaseOrdersPage() {
                             <TableRow>
                               <TableHead>Material*</TableHead>
                               <TableHead>Quantity*</TableHead>
-                              <TableHead>UOM</TableHead>
                               <TableHead>Rate*</TableHead>
                               <TableHead>Amount</TableHead>
-                              <TableHead className="w-[100px]">Actions</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {fields.map((field, index) => {
-                              const selectedMaterial = rawMaterialResponse?.find((m: any) => m.id === watchedItems[index]?.rawMaterialId);
                               const qty = Number(watchedItems[index]?.qty || 0);
                               const rate = Number(watchedItems[index]?.rate || 0);
                               const amount = qty * rate;
 
                               return (
-                                <TableRow key={field.tempId}>
+                                <TableRow key={field.tempId} data-testid={`row-item-${index}`} style={{ alignItems: "center" }}>
                                   <TableCell>
                                     <FormField
                                       control={form.control}
@@ -505,10 +442,6 @@ export default function PurchaseOrdersPage() {
                                           <Select
                                             onValueChange={(value) => {
                                               field.onChange(value);
-                                              const material = rawMaterialResponse?.find((m: any) => m.id === value);
-                                              if (material) {
-                                                form.setValue(`items.${index}.uom`, material.uom);
-                                              }
                                             }}
                                             defaultValue={field.value || ""}
                                           >
@@ -554,30 +487,6 @@ export default function PurchaseOrdersPage() {
                                               ref={field.ref}
                                               data-testid={`input-qty-${index}`}
                                               onWheel={(e) => e.currentTarget.blur()}
-                                            />
-                                          </FormControl>
-                                          <FormMessage />
-                                        </FormItem>
-                                      )}
-                                    />
-                                  </TableCell>
-
-                                  <TableCell>
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.uom`}
-                                      render={({ field }) => (
-                                        <FormItem>
-                                          <FormControl>
-                                            <Input
-                                              value={selectedMaterial?.uom || field.value || ""}
-                                              onChange={field.onChange}
-                                              onBlur={field.onBlur}
-                                              name={field.name}
-                                              ref={field.ref}
-                                              placeholder="Unit"
-                                              readOnly={!!selectedMaterial}
-                                              data-testid={`input-uom-${index}`}
                                             />
                                           </FormControl>
                                           <FormMessage />
@@ -686,40 +595,29 @@ export default function PurchaseOrdersPage() {
                 </Form>
               </DialogContent>
             </Dialog>
-          )}
         </div>
       </div>
 
-      {activeTab === "orders" && (
-        <DataTable
-          title="Purchase Orders"
-          columns={purchaseOrderColumns}
-          data={enrichedOrders}
-          searchable={true}
-          exportable={true}
-          pagination={true}
-          rowsPerPage={rowsPerPage}
-          totalRecords={totalRecords}
-          currentPage={page}
-          onPageChange={(newPage) => {
-            setPage(newPage);
-          }}
-          search={search}
-          onSearch={(term) => {
-            setSearch(term);
-          }}
-        />
-      )}
-
-      {activeTab === "items" && (
-        <DataTable
-          title="Purchase Order Items"
-          columns={purchaseOrderItemColumns}
-          data={allPOItems}
-          searchable={true}
-          exportable={true}
-        />
-      )}
+      {
+          <DataTable
+            title="Purchase Orders"
+            columns={purchaseOrderColumns}
+            data={enrichedOrders}
+            searchable={true}
+            exportable={true}
+            pagination={true}
+            rowsPerPage={rowsPerPage}
+            totalRecords={totalRecords}
+            currentPage={page}
+            onPageChange={(newPage) => {
+              setPage(newPage);
+            }}
+            search={search}
+            onSearch={(term) => {
+              setSearch(term);
+            }}
+          />
+      }
 
       {/* Edit Status Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -811,6 +709,6 @@ export default function PurchaseOrdersPage() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   );
 }

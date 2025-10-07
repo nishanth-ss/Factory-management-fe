@@ -2,13 +2,12 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import DataTable from "@/components/DataTable";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Eye } from "lucide-react";
+import { Plus, Eye, Edit } from "lucide-react";
 import { formatINR } from "@/lib/currency";
 import GRNForm from "@/components/GRNForm";
-import { useGrns, useUpdateGrn } from "@/hooks/useGrn";
+import { useGrns } from "@/hooks/useGrn";
 import FormattedDate from "@/lib/formatDate";
 import type { GrnType } from "@/types/grn";
-import StatusDialog from "@/components/common/StatusDialogBox";
 import { ViewDialog } from "@/components/common/ViewDialogBox";
 
 // grnColumns moved inside GRNPage component to access component state
@@ -52,15 +51,12 @@ export default function GRNPage() {
   const rowsPerPage = 5;
   const [search, setSearch] = useState("");
   const [selectedGrn,setSelectedGrn] = useState<GrnType | null>(null);
-  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
-  const [newStatus, setNewStatus] = useState<string>("");
-  const updateGrn = useUpdateGrn();
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
 
   const grnColumns = [
     { key: "grn_no", header: "GRN Number", sortable: true },
     { key: "gate_pass_number", header: "Gate Pass Number", sortable: true },
-    { key: "po_no", header: "PO Number", sortable: true },
+    { key: "purchase_order_id", header: "PO Number", sortable: true },
     { key: "vendor_name", header: "Vendor", sortable: true },
     { key: "received_by_name", header: "Received By", sortable: true },
     { 
@@ -78,9 +74,9 @@ export default function GRNPage() {
           <Button variant="outline" size="sm" data-testid={`button-view-${row.id}`} onClick={() => {setSelectedGrn(row), setIsViewDialogOpen(true)}}>
             <Eye className="h-3 w-3" />
           </Button>
-          {/* <Button variant="outline" size="sm" data-testid={`button-edit-${row.id}`} onClick={() => handleUpdateStatus(row)}>
+          <Button variant="outline" size="sm" data-testid={`button-edit-${row.id}`} onClick={() => {setSelectedGrn(row), setIsCreateDialogOpen(true)}}>
             <Edit className="h-3 w-3" />
-          </Button> */}
+          </Button>
         </div>
       )
     },
@@ -126,7 +122,7 @@ export default function GRNPage() {
           </div>
           
           {activeTab === "grns" && (
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <Dialog open={isCreateDialogOpen} onOpenChange={(open)=>{ setIsCreateDialogOpen(open); if(!open){ setSelectedGrn(null); } }}>
               <DialogTrigger asChild>
                 <Button data-testid="button-create-grn">
                   <Plus className="h-4 w-4 mr-2" />
@@ -142,6 +138,8 @@ export default function GRNPage() {
                     setIsCreateDialogOpen(false);
                   }}
                   setIsCreateDialogOpen={setIsCreateDialogOpen}
+                  selectedGrn={selectedGrn}
+                  setSelectedGrn={setSelectedGrn}
                 />
               </DialogContent>
             </Dialog>
@@ -179,33 +177,6 @@ export default function GRNPage() {
         />
       )}
 
-      {/* Status GRN Dialog */}
-      <StatusDialog 
-      open={isStatusDialogOpen}
-      onOpenChange={setIsStatusDialogOpen}
-      title="Update GRN Status"
-      description="Select the new status for the GRN"
-      value={newStatus}
-      setValue={setNewStatus}
-      onSubmit={() => {
-        updateGrn.mutate({
-          id: selectedGrn?.grn_id || "",
-          status: newStatus as string
-        },{
-          onSuccess: () => {
-            setIsStatusDialogOpen(false);
-            setNewStatus("");
-          }
-        });
-      }}
-      onCancel={() => {
-        setIsStatusDialogOpen(false);
-        setNewStatus("");
-      }}
-      submitLabel="Update"
-      cancelLabel="Cancel"  
-      />
-
       <ViewDialog
         open={isViewDialogOpen}
         onOpenChange={setIsViewDialogOpen}
@@ -218,7 +189,7 @@ export default function GRNPage() {
                 <div className="space-y-2 text-sm">
                   <p><strong>GRN Number:</strong> {selectedGrn?.grn_no}</p>
                   <p><strong>Gate Pass Number:</strong> {selectedGrn?.gate_pass_number}</p>
-                  <p><strong>PO Number:</strong> {selectedGrn?.po_no}</p>
+                  <p><strong>PO Number:</strong> {selectedGrn?.purchase_order_id}</p>
                   <p><strong>Vendor Name:</strong> {selectedGrn?.vendor_name}</p>
                   <p><strong>Received By Name:</strong> {selectedGrn?.received_by_name}</p>
                   <p><strong>Received At:</strong> {selectedGrn?.received_at ? new Date(selectedGrn.received_at).toLocaleString() : 'Not submitted'}</p>

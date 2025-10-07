@@ -5,16 +5,18 @@ import { persistStore, persistReducer } from "redux-persist";
 import storage from "redux-persist/lib/storage"; // localStorage
 import authReducer from "./authSlice";
 import manufacturingReducer from "./manufacturingCollection";
+import productReducer from "./productSlice";
 
 const rootReducer = combineReducers({
   auth: authReducer,
   manufacturing: manufacturingReducer,
+  product: productReducer,
 });
 
 const persistConfig = {
   key: "root",
   storage,
-  whitelist: ["auth", "manufacturing"], // persist only auth slice
+  whitelist: ["auth", "manufacturing", "product"], // persist only auth slice
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

@@ -76,7 +76,7 @@ export default function ProductionPage() {
       }
     },
     {
-      key: "material_cost",
+      key: "total_batch_cost",
       header: "Material Cost",
       // render: (_: any, row: any) => (
       //   <div>
@@ -89,13 +89,19 @@ export default function ProductionPage() {
       // )
     },
     {
-      key: "status",
+      key: "batch_status",
       header: "Status",
       render: (status: string) => <StatusBadge status={status as any} size="sm" />
     },
     {
-      key: "start_date",
+      key: "batch_start_date",
       header: "Start Date",
+      sortable: true,
+      render: (date: string) => date ? format(new Date(date), "dd/MM/yyyy") : "-"
+    },
+    {
+      key: "batch_end_date",
+      header: "End Date",
       sortable: true,
       render: (date: string) => date ? format(new Date(date), "dd/MM/yyyy") : "-"
     },
@@ -287,10 +293,10 @@ export default function ProductionPage() {
           <p>Batch Number: {selectedProduction?.batch_no}</p>
           <p>Article SKU: {selectedProduction?.article_sku}</p>
           <p>Planned Quantity: {selectedProduction?.planned_quantity}</p>
-          <p>Status: {selectedProduction?.status}</p>
-          <p>Start Date: {new Date(selectedProduction?.start_date).toLocaleDateString()}</p>
-          <p>End Date: {new Date(selectedProduction?.end_date).toLocaleDateString()}</p>
-          <p>Material Cost : {selectedProduction?.material_cost}</p>
+          <p>Status: {selectedProduction?.batch_status}</p>
+          <p>Start Date: {new Date(selectedProduction?.batch_start_date).toLocaleDateString()}</p>
+          <p>End Date: {new Date(selectedProduction?.batch_end_date).toLocaleDateString()}</p>
+          <p>Material Cost : {selectedProduction?.total_batch_cost}</p>
           <p>
             <h1 className="font-bold py-2">Batch Consumption</h1>
             <div>

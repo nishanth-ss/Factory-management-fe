@@ -2,9 +2,9 @@ export interface GrnType {
     id?: string;
     grn_id?: string;
     grn_no: string;
-    po_no: string;
+    po_no?: string;
     vendor_name: string;
-    purchase_order_id: string;
+    purchase_order_id?: string;
     notes?: string;
     gate_pass_number?: string;
     received_by_name?: string;
@@ -24,8 +24,7 @@ export interface GrnsApiResponse {
 // Payload used when creating a GRN
 export interface GrnCreatePayload {
     grn_no: string;
-    po_no: string;
-    purchase_order_id: string;
+    purchase_order_id?: string;
     gate_pass_number: string;
     notes?: string;
     received_by?: string;

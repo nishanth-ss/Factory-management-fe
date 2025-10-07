@@ -8,7 +8,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Plus, Eye, Edit } from "lucide-react";
-import { formatINR } from "@/lib/currency";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -17,10 +16,6 @@ import { useDebounce } from "@/hooks/useDebounce";
 import type { RawMaterialType } from "@/types/rawMaterial";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/store/store";
-import { RawMaterialBatchesDialog } from "@/components/RawMaterialComp/RawMaterialBatchComp";
-import { useCreateRawMaterialBatch, useRawMaterialBatches } from "@/hooks/useRawMaterialBatch";
-import type { RawMaterialBatchType } from "@/types/rawmaterialBatch";
-import { ViewDialog } from "@/components/common/ViewDialogBox";
 
 export const insertRawMaterialSchema = z.object({
   code: z.string().min(1, "Code is required"),
@@ -51,7 +46,6 @@ const unitOptions = [
 export default function RawMaterialsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedIndent, setSelectedIndent] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<"materials" | "batches">("materials");
   const [page, setPage] = useState(1);
   const rowsPerPage = 5;
   const createMutation = useCreateRawMaterial();
@@ -60,53 +54,8 @@ export default function RawMaterialsPage() {
   const debouncedSearch = useDebounce(search, 350);
   const { refetch } = useRawMaterials({ page: page, limit: rowsPerPage, search: debouncedSearch });
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [isBatchViewDialogOpen, setIsBatchViewDialogOpen] = useState(false);
-  const [selectedBatch, setSelectedBatch] = useState<any>(null);
-  const [openBatchesDialog, setOpenBatchesDialog] = useState(false);
-  const { refetch: batchRefetch } = useRawMaterialBatches({ page: page, limit: rowsPerPage, search: debouncedSearch });
-const createBatch = useCreateRawMaterialBatch();
   const { rawMaterialResponse } = useSelector((state: RootState) => state.manufacturing);
   const materials = rawMaterialResponse?.data || [];
-
-  const { rawMaterialBatch } = useSelector((state: RootState) => state.manufacturing);
-  const batches = Array.isArray(rawMaterialBatch?.data) ? rawMaterialBatch?.data : [];
-
-  const batchColumns = [
-    { key: "batch_no", header: "Batch No", sortable: true },
-    { key: "raw_material_name", header: "Material", sortable: true },
-    {
-      key: "qty_received",
-      header: "Qty Received",
-      sortable: true,
-      render: (qty: string, row: any) => `${qty} ${row.uom || ''}`
-    },
-    {
-      key: "qty_available",
-      header: "Qty Available",
-      sortable: true,
-      render: (qty: string, row: any) => `${qty} ${row.uom || ''}`
-    },
-    {
-      key: "cost_per_unit",
-      header: "Cost Per Unit",
-      sortable: true,
-      render: (cost: string) => cost ? formatINR(cost) : '-'
-    },
-    { key: "mfg_date", header: "Mfg Date", sortable: true, render: (date: string) => new Date(date).toLocaleDateString() },
-    { key: "exp_date", header: "Exp Date", sortable: true, render: (date: string) => new Date(date).toLocaleDateString() },
-    { key: "location", header: "Location", sortable: true },
-    {
-      key: "actions",
-      header: "Actions",
-      render: (_value: any, row: any) => (
-        <div className="flex gap-1">
-          <Button variant="outline" size="sm" data-testid={`button-view-batch-${row.id}`} onClick={() => {setSelectedBatch(row), setIsBatchViewDialogOpen(true)}}>
-            <Eye className="h-3 w-3" />
-          </Button>
-        </div>
-      )
-    },
-  ];
 
   const materialColumns = [
     { key: "code", header: "Material Code", sortable: true },
@@ -160,24 +109,6 @@ const createBatch = useCreateRawMaterialBatch();
   </div>
 )}
 
-<div>
-  <h1>Raw Material Batches - {selectedIndent?.code}</h1>
-  {
-    batches?.map((batch: any) => (
-      <div key={batch.id}>
-        <p><strong>Batch No:</strong> {batch.batch_no}</p>
-        <p><strong>Material:</strong> {batch.material_name}</p>
-        <p><strong>Qty Received:</strong> {batch.qty_received}</p>
-        <p><strong>Qty Available:</strong> {batch.qty_available}</p>
-        <p><strong>Cost Per Unit:</strong> {batch.cost_per_unit}</p>
-        <p><strong>Mfg Date:</strong> {batch.mfg_date}</p>
-        <p><strong>Exp Date:</strong> {batch.exp_date}</p>
-        <p><strong>Location:</strong> {batch.location}</p>
-      </div>
-    ))
-  }
-</div>
-
   const form = useForm<any>({
     resolver: zodResolver(insertRawMaterialSchema),
     defaultValues: {
@@ -193,7 +124,6 @@ const createBatch = useCreateRawMaterialBatch();
 
   useEffect(() => {
     refetch();
-    batchRefetch();
   }, [refetch, page]);
 
   useEffect(() => {
@@ -217,12 +147,6 @@ const createBatch = useCreateRawMaterialBatch();
     }
   }, [isCreateDialogOpen]);
 
-  useEffect(() => {
-    if (!openBatchesDialog) {
-      form.reset();
-    }
-  }, [openBatchesDialog]);
-
   const onSubmit = (data: RawMaterialType) => {
     if (selectedIndent) {
       updateMutation.mutate(
@@ -245,42 +169,12 @@ const createBatch = useCreateRawMaterialBatch();
     }
   };
 
-  // Combine batch data with material names for display
-  const enrichedBatches = batches?.map((batch: any) => {
-    const material = materials?.find((m: any) => m.id === batch.rawMaterialId);
-    return {
-      ...batch,
-      materialName: material?.name || 'Unknown Material',
-      uom: material?.uom || ''
-    };
-  });
-
   const handleClose = () => {
     setSelectedIndent(null);
     setIsCreateDialogOpen(false);
     form.reset();
   };
 
-  const handleSaveBatches = (data: any[]) => {
-    // Dialog returns an array of batch form items. The mutation expects a single RawMaterialBatchType.
-    const payloads: RawMaterialBatchType[] = data.map((b: any) => ({
-      raw_material_id: b.material,
-      batch_no: b.batch_no,
-      qty_received: Number(b.qty_received ?? 0),
-      qty_available: Number(b.qty_received ?? 0), // initialize available = received
-      cost_per_unit: Number(b.cost_per_unit ?? 0),
-      mfg_date: b.mfg_date,
-      exp_date: b.exp_date,
-      location: b.location,
-    }));
-
-    payloads.forEach((p) => createBatch.mutate(p), {
-      onSuccess: () => {
-        setOpenBatchesDialog(false);
-        form.reset();
-      },
-    });
-  };
 
   return (
     <div className="space-y-6" data-testid="page-raw-materials">
@@ -291,24 +185,6 @@ const createBatch = useCreateRawMaterialBatch();
         </div>
 
         <div className="flex gap-2">
-          <div className="flex border rounded-lg p-1">
-            <Button
-              variant={activeTab === "materials" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setActiveTab("materials")}
-              data-testid="tab-materials"
-            >
-              Materials
-            </Button>
-            <Button
-              variant={activeTab === "batches" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setActiveTab("batches")}
-              data-testid="tab-batches"
-            >
-              Batches
-            </Button>
-          </div>
 
           {/* View Indent Dialog */}
           <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
@@ -335,8 +211,7 @@ const createBatch = useCreateRawMaterialBatch();
             </DialogContent>
           </Dialog>
 
-          {activeTab === "materials" && (
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button data-testid="button-create-material">
                   <Plus className="h-4 w-4 mr-2" />
@@ -534,18 +409,9 @@ const createBatch = useCreateRawMaterialBatch();
                 </Form>
               </DialogContent>
             </Dialog>
-          )}
-
-          {activeTab === "batches" && (
-            <Button data-testid="button-create-material" onClick={() => setOpenBatchesDialog(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Batch
-            </Button>
-          )}
         </div>
       </div>
 
-      {activeTab === "materials" && (
         <DataTable
           title="Raw Materials Master"
           columns={materialColumns}
@@ -563,61 +429,6 @@ const createBatch = useCreateRawMaterialBatch();
             setPage(1);
           }}
         />
-      )}
-
-      {activeTab === "batches" && (
-        <DataTable
-          title="Raw Material Batches"
-          columns={batchColumns}
-          data={enrichedBatches}
-          searchable={true}
-          exportable={true}
-          pagination={true}
-          rowsPerPage={rowsPerPage}
-          totalRecords={rawMaterialBatch?.total || 0}
-          currentPage={page}
-          onPageChange={(newPage) => setPage(newPage)}
-          search={search}
-          onSearch={(term) => {
-            setSearch(term);
-            setPage(1);
-          }}
-        />
-      )}
-
-      <ViewDialog
-        open={isBatchViewDialogOpen}
-        onOpenChange={setIsBatchViewDialogOpen}
-        title="View Batch"
-        subtitle={selectedBatch?.batch_no}
-        children={
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="space-y-2 text-sm">
-                  <p><strong>Batch No:</strong> {selectedBatch?.batch_no}</p>
-                  <p><strong>Material Name:</strong> {selectedBatch?.raw_material_name}</p>
-                  <p><strong>Category:</strong> {selectedBatch?.category}</p>
-                  <p><strong>Qty Received:</strong> {selectedBatch?.qty_received}</p>
-                  <p><strong>Qty Available:</strong> {selectedBatch?.qty_available}</p>
-                  <p><strong>Cost Per Unit:</strong> {selectedBatch?.cost_per_unit}</p>
-                  <p><strong>Mfg Date:</strong> {selectedBatch?.mfg_date ? new Date(selectedBatch.mfg_date).toLocaleDateString() : 'Not submitted'}</p>
-                  <p><strong>Exp Date:</strong> {selectedBatch?.exp_date ? new Date(selectedBatch.exp_date).toLocaleDateString() : 'Not submitted'}</p>
-                  <p><strong>Location:</strong> {selectedBatch?.location}</p>
-                  <p><strong>Created At:</strong> {selectedBatch?.created_at ? new Date(selectedBatch.created_at).toLocaleDateString() : 'Not submitted'}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        }
-      />
-
-      <RawMaterialBatchesDialog
-        open={openBatchesDialog}
-        onOpenChange={setOpenBatchesDialog}
-        onSave={handleSaveBatches}
-        materials={materials}
-      />
     </div>
   );
 }

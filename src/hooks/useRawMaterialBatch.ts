@@ -15,11 +15,11 @@ export function useRawMaterialBatches(params: { page?: number; limit?: number | 
   const search = params.search ?? "";
 
   const query = useQuery<RawMaterialBatchApiResponse, Error>({
-    queryKey: ["raw-material-batches", page, limit, search],
+    queryKey: ["batches", page, limit, search],
     queryFn: async () => {
       const res = await apiRequest<RawMaterialBatchApiResponse>(
         "GET",
-        "/raw-material/raw-material-batch",
+        "batch",
         undefined,
         {
           params: { page, limit, search },
@@ -42,19 +42,19 @@ export function useRawMaterialBatches(params: { page?: number; limit?: number | 
 }
 
 // 🔹 Create batch
-export const useCreateRawMaterialBatch = () => {
+export const useCreateBatch = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  return useMutation<RawMaterialBatchCreateResponse, Error, RawMaterialBatchType>({
-    mutationFn: (data: RawMaterialBatchType) =>
+  return useMutation<RawMaterialBatchCreateResponse, Error, any>({
+    mutationFn: (data: any) =>
       apiRequest<RawMaterialBatchCreateResponse>(
         "POST",
-        "/raw-material/raw-material-batch",
+        "batch",
         data
       ),
     onSuccess: (res) => {
-      queryClient.invalidateQueries({ queryKey: ["raw-material-batches"] });
+      queryClient.invalidateQueries({ queryKey: ["batches"] });
       toast(res.message, { variant: "success" });
     },
     onError: (error) => {
@@ -64,7 +64,7 @@ export const useCreateRawMaterialBatch = () => {
 };
 
 // 🔹 Update batch
-export const useUpdateRawMaterialBatch = () => {
+export const useUpdateBatch = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -76,11 +76,11 @@ export const useUpdateRawMaterialBatch = () => {
     mutationFn: ({ id, data }) =>
       apiRequest<RawMaterialBatchCreateResponse>(
         "PUT",
-        `/raw-material/raw-material-batch/${id}`,
+        `batch/${id}`,
         data
       ),
     onSuccess: (res) => {
-      queryClient.invalidateQueries({ queryKey: ["raw-material-batches"] });
+      queryClient.invalidateQueries({ queryKey: ["batches"] });
       toast(res.message, { variant: "success" });
     },
     onError: (error) => {
