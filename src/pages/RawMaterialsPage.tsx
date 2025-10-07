@@ -62,6 +62,7 @@ export default function RawMaterialsPage() {
     { key: "name", header: "Material Name", sortable: true },
     { key: "description", header: "Description", sortable: true },
     { key: "category", header: "Category", sortable: true },
+    { key: "total_qty", header: "Total Quantity", sortable: true },
     {
       key: "uom",
       header: "UOM",
@@ -99,6 +100,7 @@ export default function RawMaterialsPage() {
         <div className="space-y-2 text-sm">
           <p><strong>Material Code:</strong> {selectedIndent.code}</p>
           <p><strong>Material Name:</strong> {selectedIndent.name}</p>
+          <p><strong>Total Quantity:</strong> {selectedIndent.total_qty}</p>
           <p><strong>Category:</strong> {selectedIndent.category}</p>
           <p><strong>UOM:</strong> {selectedIndent.uom}</p>
           <p><strong>Reorder Level:</strong> {selectedIndent.reorder_level}</p>

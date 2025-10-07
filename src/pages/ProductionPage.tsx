@@ -10,10 +10,9 @@ import { Plus, Eye, Edit, Package, Clock, CheckCircle, AlertTriangle } from "luc
 import { formatINR } from "@/lib/currency";
 import { format } from "date-fns";
 import ProductionBatchForm from "@/components/ProductionBatchForm";
-import { useProductions, useUpdateProduction } from "@/hooks/useProduction";
+import { useProductions } from "@/hooks/useProduction";
 import { useRawMaterialBatches } from "@/hooks/useRawMaterialBatch";
 import { ViewDialog } from "@/components/common/ViewDialogBox";
-import StatusDialog from "@/components/common/StatusDialogBox";
 import { getRoleIdFromAuth } from "@/lib/utils";
 
 // Production batch status configuration
@@ -43,8 +42,6 @@ export default function ProductionPage() {
   const batchesData = batches?.data ?? [];
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedProduction, setSelectedProduction] = useState<any>(null);
-  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
-  const updateProduction = useUpdateProduction();
   const roleId = getRoleIdFromAuth();
 
 
@@ -115,7 +112,7 @@ export default function ProductionPage() {
           </Button>
           <Button variant="outline" size="sm" data-testid={`button-edit-${row.id}`}
             disabled={roleId !== 1}
-            onClick={() => { setSelectedProduction(row), setIsStatusDialogOpen(true) }}>
+            onClick={() => { setSelectedProduction(row), setIsCreateDialogOpen(true) }}>
             <Edit className="h-3 w-3" />
           </Button>
         </div>
@@ -141,7 +138,7 @@ export default function ProductionPage() {
           <h1 className="text-2xl font-bold">Production Management</h1>
           <p className="text-muted-foreground">Manage production batches and track material consumption</p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={() => {setIsCreateDialogOpen(!isCreateDialogOpen),setSelectedProduction(null)}}>
           <DialogTrigger asChild>
             <Button data-testid="button-create-batch">
               <Plus className="h-4 w-4 mr-2" />
@@ -150,13 +147,15 @@ export default function ProductionPage() {
           </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Create Production Batch</DialogTitle>
+              <DialogTitle>{selectedProduction ? "Edit Batch" : "Create Batch"}</DialogTitle>
               <DialogDescription>
-                Create a new production batch with material consumption planning
+                {selectedProduction ? "Edit production batch with material consumption planning" : "Create a new production batch with material consumption planning"}
               </DialogDescription>
             </DialogHeader>
             <ProductionBatchForm
-              onCancel={() => setIsCreateDialogOpen(false)}
+              key={selectedProduction?.id || "new"}
+              onCancel={() => {setIsCreateDialogOpen(false),setSelectedProduction(null)}}
+              selectedProduction={selectedProduction}
             />
           </DialogContent>
         </Dialog>
@@ -327,48 +326,6 @@ export default function ProductionPage() {
           </p>
         </div>}
       />
-
-      {/* Status Dialog */}
-      <StatusDialog
-        open={isStatusDialogOpen}
-        onOpenChange={setIsStatusDialogOpen}
-        title="Production Batch"
-        value={selectedProduction?.status}
-        setValue={(value) =>
-          setSelectedProduction({ ...selectedProduction, status: value })
-        }
-        statusConfig={[
-          { value: "planned", label: "Planned" },
-          { value: "in_process", label: "In Process" },
-          { value: "qc", label: "QC" },
-          { value: "released", label: "Released" },
-        ]}
-        extraField={
-          <Input
-            placeholder="Production Quantity"
-            value={selectedProduction?.produced_qty}
-            onChange={(e) =>
-              setSelectedProduction({
-                ...selectedProduction,
-                produced_qty: e.target.value,
-              })
-            }
-            type="number"
-            onWheel={(e) => e.currentTarget.blur()}
-          />
-        }
-        onSubmit={() => {
-          updateProduction.mutate({
-            id: selectedProduction?.batch_id,
-            data: {
-              status: selectedProduction?.status,
-              produced_qty: selectedProduction?.produced_qty,
-            },
-          });
-          setIsStatusDialogOpen(false); // 👈 close only after saving
-        }}
-      />
-
     </div>
   );
 }

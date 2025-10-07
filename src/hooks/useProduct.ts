@@ -6,7 +6,7 @@ import { setProducts } from "@/store/productSlice";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "./useNoistackToast";
 
-export function useProducts(params: { page?: number; limit?: number; search?: string }) {
+export function useProducts(params: { page?: number; limit?: number | "all"; search?: string }) {
     const dispatch = useDispatch();
   
     const page = params.page ?? 1;

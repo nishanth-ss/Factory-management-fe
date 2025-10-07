@@ -28,15 +28,6 @@ interface ExpenditureItem {
   type: "cost" | "expense";
 }
 
-interface ExpenditureSummary {
-  totalExpenses: number;
-  materialsCost: number;
-  productionCost: number;
-  procurementCost: number;
-  operationsCost: number;
-  monthlyChange: number;
-}
-
 function ExpenditureCard({ item }: { item: ExpenditureItem }) {
   const categoryIcons = {
     materials: Package,
@@ -94,6 +85,73 @@ function ExpenditureCard({ item }: { item: ExpenditureItem }) {
   );
 }
 
+interface ExpenditureItem1 {
+  id: string;
+  title: string;
+  category: "materials" | "production" | "vendor" | "expense";
+  amount: number;
+  date: string;
+  ref_no?: string;
+  type: "materials" | "production" | "vendor" | "expense";
+}
+
+function ExpenditureCard1({ item }: { item: ExpenditureItem1 }) {
+  const categoryIcons = {
+    materials: Package,
+    production: Factory,
+    vendor: ShoppingCart,
+    expense: TrendingUp,
+  };
+
+  const categoryColors = {
+    materials: "bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+    production: "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800",
+    vendor: "bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800",
+    expense: "bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800",
+  };
+
+  const Icon = categoryIcons[item.type];
+
+  return (
+    <Card className="hover-elevate" data-testid={`card-expenditure-${item.id}`}>
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className={`p-2 rounded-md ${categoryColors[item.type]}`}>
+              <Icon className="h-4 w-4" />
+            </div>
+            <div>
+              <h4 className="font-medium text-sm" data-testid={`text-expenditure-description-${item.id}`}>
+                {item.title}
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                {format(new Date(item.date), "MMM dd, yyyy")}
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="font-semibold text-lg" data-testid={`text-expenditure-amount-${item.id}`}>
+              {formatINR(item.amount)}
+            </div>
+            <Badge 
+              variant={item.type === "expense" ? "secondary" : "outline"} 
+              className="text-xs"
+              data-testid={`badge-expenditure-type-${item.id}`}
+            >
+              {item.type}
+            </Badge>
+          </div>
+        </div>
+        {item.ref_no && (
+          <div className="text-xs text-muted-foreground">
+            Ref: {item.ref_no}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function SummaryCard({ 
   title, 
   amount, 
@@ -143,17 +201,8 @@ export default function ExpenditurePage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const { data: expenditures } = useExpenditures();
-  const expenditureData = expenditures?.data?.totals;
-
-  // Mock data - in real app this would come from API
-  const mockSummary: ExpenditureSummary = {
-    totalExpenses: 2850000,
-    materialsCost: 1200000,
-    productionCost: 850000,
-    procurementCost: 450000,
-    operationsCost: 350000,
-    monthlyChange: 8.5,
-  };
+  const topCards = expenditures?.data?.monthlyCosts?.[0];
+  const detailsCardData = expenditures?.data?.detailedRecords;
 
   const mockExpenditures: ExpenditureItem[] = [
     {
@@ -231,31 +280,31 @@ export default function ExpenditurePage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
           title="Total Expenses"
-          amount={expenditureData?.total_expense}
+          amount={topCards?.grand_total_cost}
           icon={IndianRupee}
-          change={mockSummary.monthlyChange}
-          changeType="negative"
+          change={Number(topCards?.change_from_last_month?.grand_total_cost) || 0}
+          changeType={Number(topCards?.change_from_last_month?.grand_total_cost) > 0 ? "positive" : "negative"}
         />
         <SummaryCard
           title="Materials Cost"
-          amount={expenditureData?.materials_cost}
+          amount={topCards?.total_material_cost}
           icon={Package}
-          change={12.3}
-          changeType="negative"
+          change={Number(topCards?.change_from_last_month?.total_material_cost) || 0}
+          changeType={Number(topCards?.change_from_last_month?.total_material_cost) > 0 ? "positive" : "negative"}
         />
         <SummaryCard
           title="Production Cost"
-          amount={expenditureData?.production_cost}
+          amount={topCards?.total_production_cost}
           icon={Factory}
-          change={-5.2}
-          changeType="positive"
+          change={Number(topCards?.change_from_last_month?.total_production_cost) || 0}
+          changeType={Number(topCards?.change_from_last_month?.total_production_cost) > 0 ? "positive" : "negative"}
         />
         <SummaryCard
           title="Operations Cost"
-          amount={expenditureData?.operations_cost}
+          amount={topCards?.total_operation_expense}
           icon={TrendingUp}
-          change={3.8}
-          changeType="negative"
+          change={Number(topCards?.change_from_last_month?.total_operation_expense) || 0}
+          changeType={Number(topCards?.change_from_last_month?.total_operation_expense) > 0 ? "positive" : "negative"}
         />
       </div>
 
@@ -314,11 +363,17 @@ export default function ExpenditurePage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {filteredExpenditures.map((item) => (
+          {/* {filteredExpenditures.map((item) => (
             <ExpenditureCard key={item.id} item={item} />
-          ))}
+          ))} */}
+
+          {
+            detailsCardData?.map((item: any) => (
+              <ExpenditureCard1 key={item.id} item={item} />
+            ))
+          }
         </div>
       )}
-    </div>
+    </div>  
   );
 }

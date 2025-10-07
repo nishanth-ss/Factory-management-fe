@@ -63,7 +63,7 @@ export const useUpdateProduction = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  return useMutation<ProductionCreateResponse, Error, { id: string; data: { status: string; produced_qty: string } }>({
+  return useMutation<ProductionCreateResponse, Error, { id: string; data: ProductionType }>({
     mutationFn: ({ id, data }) =>
       apiRequest<ProductionCreateResponse>("PUT", `/production/${id}`, data),
     onSuccess: (res) => {

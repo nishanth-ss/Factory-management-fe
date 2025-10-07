@@ -22,7 +22,7 @@ export interface ProductionOperationExpense {
     planned_qty: number;                    // Planned quantity to produce
     start_date: string;                     // Production start date (ISO string)
     end_date: string;                       // Production end date (ISO string)
-    status: "planned" | "in_progress" | "completed" | "cancelled"; // Production status
+    status?: "planned" | "in_progress" | "completed" | "cancelled"; // Production status
     batch_consumptions: ProductionBatchConsumption[];
     operation_expenses: ProductionOperationExpense[]; // Operation expenses
   }
