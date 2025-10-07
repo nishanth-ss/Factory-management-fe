@@ -109,6 +109,20 @@ export default function GRNForm({ onSubmit, setIsCreateDialogOpen, selectedGrn,s
   
   const handleSubmit = (data: CreateGrnFormData) => {
     if (!selectedPO) return; 
+    if(selectedGrn){
+      const payload: any = {
+        ...data,
+        purchase_order_id: selectedPO?.id ?? String((selectedGrn as any)?.id ?? ""),
+      };
+      updateGrnMutation.mutate({id: selectedGrn.grn_id, data: payload},{
+        onSuccess: () => {
+          setIsCreateDialogOpen(false);
+          setSelectedGrn(null);
+          setSelectedPOId("");
+        }
+      });
+      return;
+    }
     const payload: GrnCreatePayload = {
       ...data,
       purchase_order_id: selectedPO?.id ?? String((selectedGrn as any)?.id ?? ""),
@@ -270,12 +284,12 @@ export default function GRNForm({ onSubmit, setIsCreateDialogOpen, selectedGrn,s
           </Button>
           {selectedGrn ? <Button
             type="submit"
-            disabled={createGrnMutation.isPending || !selectedPOId}
+            disabled={createGrnMutation.isPending}
           >
             {createGrnMutation.isPending ? "Updating..." : "Update GRN"}
           </Button> : <Button
             type="submit"
-            disabled={createGrnMutation.isPending || !selectedPOId}
+            disabled={createGrnMutation.isPending}
           >
             {createGrnMutation.isPending ? "Creating..." : "Create GRN"}
           </Button>}
