@@ -28,62 +28,6 @@ interface ExpenditureItem {
   type: "cost" | "expense";
 }
 
-function ExpenditureCard({ item }: { item: ExpenditureItem }) {
-  const categoryIcons = {
-    materials: Package,
-    production: Factory,
-    procurement: ShoppingCart,
-    operations: TrendingUp,
-  };
-
-  const categoryColors = {
-    materials: "bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800",
-    production: "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800",
-    procurement: "bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800",
-    operations: "bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800",
-  };
-
-  const Icon = categoryIcons[item.category];
-
-  return (
-    <Card className="hover-elevate" data-testid={`card-expenditure-${item.id}`}>
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className={`p-2 rounded-md ${categoryColors[item.category]}`}>
-              <Icon className="h-4 w-4" />
-            </div>
-            <div>
-              <h4 className="font-medium text-sm" data-testid={`text-expenditure-description-${item.id}`}>
-                {item.description}
-              </h4>
-              <p className="text-xs text-muted-foreground">
-                {format(new Date(item.date), "MMM dd, yyyy")}
-              </p>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="font-semibold text-lg" data-testid={`text-expenditure-amount-${item.id}`}>
-              {formatINR(item.amount)}
-            </div>
-            <Badge 
-              variant={item.type === "cost" ? "secondary" : "outline"} 
-              className="text-xs"
-              data-testid={`badge-expenditure-type-${item.id}`}
-            >
-              {item.type}
-            </Badge>
-          </div>
-        </div>
-        {item.reference && (
-          <div className="text-xs text-muted-foreground">
-            Ref: {item.reference}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
 
 interface ExpenditureItem1 {
   id: string;
