@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import DataTable from "@/components/DataTable";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Eye, Edit } from "lucide-react";
-import { formatINR } from "@/lib/currency";
 import GRNForm from "@/components/GRNForm";
 import { useGrns } from "@/hooks/useGrn";
 import FormattedDate from "@/lib/formatDate";
@@ -11,48 +10,15 @@ import type { GrnType } from "@/types/grn";
 import { ViewDialog } from "@/components/common/ViewDialogBox";
 import StatusBadge from "@/components/StatusBadge";
 
-// grnColumns moved inside GRNPage component to access component state
-
-const grnItemColumns = [
-  { key: "grnNo", header: "GRN Number", sortable: true },
-  { key: "materialCode", header: "Material Code", sortable: true },
-  { key: "materialName", header: "Material Name", sortable: true },
-  { key: "batchNo", header: "Batch No", sortable: true },
-  { 
-    key: "qty", 
-    header: "Quantity", 
-    sortable: true,
-    render: (qty: string, row: any) => `${qty} ${row.uom || ''}`
-  },
-  { 
-    key: "costPerUnit", 
-    header: "Cost Per Unit", 
-    sortable: true,
-    render: (cost: string) => cost ? formatINR(cost) : '-'
-  },
-  { 
-    key: "value", 
-    header: "Line Value", 
-    sortable: true,
-    render: (_value: any, row: any) => {
-      const qty = parseFloat(row.qty || '0');
-      const cost = parseFloat(row.costPerUnit || '0');
-      return formatINR(qty * cost);
-    }
-  },
-  { key: "mfgDate", header: "Mfg Date", sortable: true },
-  { key: "expDate", header: "Exp Date", sortable: true },
-  { key: "location", header: "Location", sortable: true },
-];
 
 export default function GRNPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"grns" | "items">("grns");
   const [page, setPage] = useState(1);
   const rowsPerPage = 5;
   const [search, setSearch] = useState("");
   const [selectedGrn,setSelectedGrn] = useState<GrnType | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const { data: grns = [] } = useGrns({ page, limit:rowsPerPage, search });  
 
   const grnColumns = [
     { key: "grn_no", header: "GRN Number", sortable: true },
@@ -89,17 +55,6 @@ export default function GRNPage() {
     },
   ];
 
-  const { data: grns = [] } = useGrns({ page, limit:rowsPerPage, search });  
-
-  // For GRN items, we would need to fetch them separately and enrich with material data
-  const allGRNItems: any[] = [];
-
-  // function handleUpdateStatus(row: any) {
-  //   setSelectedGrn(row);
-  //   setNewStatus(row.status);
-  //   setIsStatusDialogOpen(true);
-  // }
-
   return (
     <div className="space-y-6" data-testid="page-grn">
       <div className="flex items-center justify-between">
@@ -109,26 +64,15 @@ export default function GRNPage() {
         </div>
         
         <div className="flex gap-2">
-          <div className="flex border rounded-lg p-1">
             <Button
-              variant={activeTab === "grns" ? "default" : "ghost"}
+              variant="default"
               size="sm"
-              onClick={() => setActiveTab("grns")}
               data-testid="tab-grns"
             >
               GRNs
             </Button>
-            <Button
-              variant={activeTab === "items" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setActiveTab("items")}
-              data-testid="tab-items"
-            >
-              Receipt Items
-            </Button>
-          </div>
           
-          {activeTab === "grns" && (
+       
             <Dialog open={isCreateDialogOpen} onOpenChange={(open)=>{ setIsCreateDialogOpen(open); if(!open){ setSelectedGrn(null); } }}>
               <DialogTrigger asChild>
                 <Button data-testid="button-create-grn">
@@ -150,11 +94,10 @@ export default function GRNPage() {
                 />
               </DialogContent>
             </Dialog>
-          )}
+        
         </div>
       </div>
 
-      {activeTab === "grns" && (
         <DataTable 
           title="Goods Receipt Notes"
           columns={grnColumns}
@@ -172,17 +115,6 @@ export default function GRNPage() {
             setPage(1); 
           }}
         />
-      )}
-
-      {activeTab === "items" && (
-        <DataTable 
-          title="GRN Items"
-          columns={grnItemColumns}
-          data={allGRNItems}
-          searchable={true}
-          exportable={true}
-        />
-      )}
 
       <ViewDialog
         open={isViewDialogOpen}

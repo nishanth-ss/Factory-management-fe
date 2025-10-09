@@ -12,44 +12,14 @@ import { useState } from "react";
 import { useDashboardActivity } from "@/hooks/useDashboard";
 import { useDashboardPendingApproval } from "@/hooks/useDashboard";
 
-// Transform API data to table format
-// function transformPendingApprovals(data: any) {
-//   const indentRows = data.indents.map((indent: any) => ({
-//     id: indent.indentNo,
-//     originalId: indent.id,
-//     type: "Indent",
-//     material: indent.items.length > 3 
-//       ? `${indent.items.length} materials requested`
-//       : indent.items.map((item: any, i: any) => `Item ${i + 1}: ${item.qty} units`).join(", "),
-//     amount: `${indent.items.length} items`,
-//     requestedBy: indent.requestedByUser.name,
-//     status: indent.status,
-//     entityType: "indent" as const
-//   }));
-
-//   const poRows = data.purchaseOrders.map((po: any) => ({
-//     id: po.poNo,
-//     originalId: po.id,
-//     type: "Purchase Order", 
-//     material: po.items.length > 2
-//       ? `${po.items.length} materials: ${po.items.slice(0, 2).map((item: any) => item.rawMaterial.name).join(", ")}...`
-//       : po.items.map((item: any) => item.rawMaterial.name).join(", "),
-//     amount: `₹${parseFloat(po.totalValue || "0").toLocaleString('en-IN')}`,
-//     requestedBy: po.createdByUser.name,
-//     status: po.status,
-//     entityType: "purchaseOrder" as const
-//   }));
-
-//   return [...indentRows, ...poRows];
-// }
-
-
 export default function Dashboard() {
   const [page, setPage] = useState(1);
+  const [pendingPage,setPendingPage] = useState(1)
   const [, setLocation] = useLocation();
   const { data: dashboardData } = useDashboard();
   const { data: dashboardActivityData } = useDashboardActivity({ page, limit: 5 });
   const { data: dashboardPendingApprovalData } = useDashboardPendingApproval({ page, limit: 5 });
+  const rowsPerPage = 5;
 
   // Navigation handlers for quick actions
   const handleCreateIndent = () => setLocation('/indents');
@@ -177,9 +147,14 @@ export default function Dashboard() {
         <DataTable
           title="Pending Approvals"
           columns={approvalColumns}
-          data={dashboardPendingApprovalData?.data}
+          data={dashboardPendingApprovalData?.data || []}
           searchable={false}
           exportable={false}
+          pagination={true}
+          rowsPerPage={rowsPerPage}
+          totalRecords={dashboardPendingApprovalData?.pagination?.totalPages || 0}
+          currentPage={pendingPage}
+          onPageChange={(newPage) => setPendingPage(newPage)}
         />
 
         {/* Recent Activity */}
