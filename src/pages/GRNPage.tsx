@@ -63,16 +63,7 @@ export default function GRNPage() {
           <p className="text-muted-foreground">Manage incoming material receipts and inventory</p>
         </div>
         
-        <div className="flex gap-2">
-            <Button
-              variant="default"
-              size="sm"
-              data-testid="tab-grns"
-            >
-              GRNs
-            </Button>
-          
-       
+        <div className="flex gap-2">       
             <Dialog open={isCreateDialogOpen} onOpenChange={(open)=>{ setIsCreateDialogOpen(open); if(!open){ setSelectedGrn(null); } }}>
               <DialogTrigger asChild>
                 <Button data-testid="button-create-grn">

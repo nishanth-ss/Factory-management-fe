@@ -70,7 +70,6 @@ export const useSingleGrn = (
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     staleTime: 10_000,
-    enabled: !!id,
     ...options,
   });
 };
@@ -106,5 +105,32 @@ export const useDeleteGrn = () => {
     onError: (error) => {
       toast(error.message || "Something went wrong", { variant: "error" });
     },
+  });
+};
+
+// ✅ Upload GRN file(s) with FormData
+export const useUploadGrnFile = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation<GrnCreateResponse, Error, FormData>({
+    mutationFn: (formData) =>
+      apiRequest<GrnCreateResponse>("POST", `/upload`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      }),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["grns"] });
+      toast(res.message, { variant: "success" });
+    },
+    onError: (error) => {
+      toast(error.message, { variant: "error" });
+    },
+  });
+};
+
+export const uploadFileDeletion = () => {
+
+  return useMutation<any, Error, string>({
+    mutationFn: (id: string) => apiRequest("DELETE", `/upload/${id}`)
   });
 };
