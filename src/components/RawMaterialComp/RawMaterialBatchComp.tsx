@@ -63,7 +63,6 @@ export function RawMaterialBatchesDialog({
   const createBatch = useCreateBatch();
   const updateBatch = useUpdateBatch();
 
-  console.log(selectedBatch);
   useEffect(() => {
     if (Object.keys(selectedBatch || {}).length > 0) {
         // Reset form when dialog opens — either with selectedProduct or empty values

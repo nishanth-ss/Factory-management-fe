@@ -9,6 +9,7 @@ import { useGrns } from "@/hooks/useGrn";
 import FormattedDate from "@/lib/formatDate";
 import type { GrnType } from "@/types/grn";
 import { ViewDialog } from "@/components/common/ViewDialogBox";
+import StatusBadge from "@/components/StatusBadge";
 
 // grnColumns moved inside GRNPage component to access component state
 
@@ -59,6 +60,12 @@ export default function GRNPage() {
     { key: "purchase_order_id", header: "PO Number", sortable: true },
     { key: "vendor_name", header: "Vendor", sortable: true },
     { key: "received_by_name", header: "Received By", sortable: true },
+    {
+      key: "purchase_order_status",
+      header: "Status", 
+      sortable: true,
+      render: (status: string) => <StatusBadge status={status as any} size="sm" />
+    },
     { 
       key: "received_at", 
       header: "Received Date", 

@@ -75,15 +75,6 @@ export default function ProductionPage() {
     {
       key: "total_batch_cost",
       header: "Material Cost",
-      // render: (_: any, row: any) => (
-      //   <div>
-      //     {row.batch_consumptions?.map((consumption: any) => (
-      //       <div key={consumption.id}>
-      //         {consumption.cost || 0}
-      //       </div>
-      //     ))}
-      //   </div>
-      // )
     },
     {
       key: "batch_status",
@@ -138,7 +129,10 @@ export default function ProductionPage() {
           <h1 className="text-2xl font-bold">Production Management</h1>
           <p className="text-muted-foreground">Manage production batches and track material consumption</p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={() => {setIsCreateDialogOpen(!isCreateDialogOpen),setSelectedProduction(null)}}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
+          setIsCreateDialogOpen(open);
+          if (!open) setSelectedProduction(null);
+        }}>
           <DialogTrigger asChild>
             <Button data-testid="button-create-batch">
               <Plus className="h-4 w-4 mr-2" />
@@ -154,7 +148,7 @@ export default function ProductionPage() {
             </DialogHeader>
             <ProductionBatchForm
               key={selectedProduction?.id || "new"}
-              onCancel={() => {setIsCreateDialogOpen(false),setSelectedProduction(null)}}
+              onCancel={() => { setIsCreateDialogOpen(false), setSelectedProduction(null) }}
               selectedProduction={selectedProduction}
             />
           </DialogContent>
@@ -313,13 +307,14 @@ export default function ProductionPage() {
           <p>
             <h1 className="font-bold py-2">Operation Expenses</h1>
             <div>
-              {selectedProduction?.operation_expenses?.map((expense: any, index: any) => (
+              {selectedProduction?.batch_expenses?.map((expense: any, index: any) => (
                 <div key={index} className="py-2">
                   <p className="font-bold">{index + 1}st expense</p>
-                  <p>Expense Type: {expense?.expense_type}</p>
-                  <p>Amount: {expense?.amount}</p>
-                  <p>Expense Date: {new Date(expense?.expense_date).toLocaleDateString()}</p>
-                  <p>Remarks: {expense?.remarks}</p>
+                  <p>Category: {expense?.expense_category}</p>
+                  <p>Qty: {expense?.qty}</p>
+                  <p>Rate: {expense.rate}</p>
+                  <p>Amount: {expense?.total_cost}</p>
+                  {expense?.description &&<p>Description: {expense?.description}</p>}
                 </div>
               ))}
             </div>

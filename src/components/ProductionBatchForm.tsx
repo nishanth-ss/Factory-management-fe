@@ -93,18 +93,14 @@ export default function ProductionBatchForm({ onCancel, selectedProduction }: Pr
         product_id: selectedProduction.product_id || "",
         article_sku: selectedProduction.article_sku || "",
         planned_qty: Number(selectedProduction.planned_qty) || 0,
-        start_date: selectedProduction.batch_start_date
-          ? new Date(selectedProduction.batch_start_date)
-          : undefined,
-        end_date: selectedProduction.batch_end_date
-          ? new Date(selectedProduction.batch_end_date)
-          : undefined,
+        start_date: selectedProduction.batch_start_date ? new Date(selectedProduction.batch_start_date) : undefined,
+        end_date: selectedProduction.batch_end_date ? new Date(selectedProduction.batch_end_date) : undefined,
         materials: selectedProduction.batch_consumptions || [],
         operationExpenses: selectedProduction.batch_expenses || [],
       });
-    }else{
+    } else {
       form.reset({
-        batch_no: "",
+        batch_no: generateBatchNo(),
         product_id: "",
         article_sku: "",
         planned_qty: 0,
@@ -112,7 +108,9 @@ export default function ProductionBatchForm({ onCancel, selectedProduction }: Pr
         operationExpenses: [],
       });
     }
-  }, [selectedProduction, batchesLoading, productsLoading, productionBatchData, productsData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProduction?.id, batchesLoading, productsLoading, productionBatchData.length, productsData.length]);
+  
 
 
   const { data: materials } = useRawMaterials({ page: 1, limit: "all", search: "" });

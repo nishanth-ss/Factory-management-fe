@@ -19,6 +19,7 @@ import { formatINR } from "@/lib/currency";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import {  useReportQuery, useReports } from "@/hooks/useReports";
 import { exportToExcel } from "@/components/ExportToExcel";
+import { useToast } from "@/hooks/useNoistackToast";
 
 interface MetricCard {
   title: string;
@@ -80,7 +81,7 @@ function MetricSummaryCard({ metric }: { metric: MetricCard }) {
               metric.changeType === "positive" ? "text-green-500" : 
               metric.changeType === "negative" ? "text-red-500" : ""
             }>
-              {metric.change > 0 ? "+" : ""}{metric.change.toFixed(1)}%
+              {metric?.change > 0 ? "+" : ""}{metric?.change.toFixed(1)}%
             </span>
             <span className="ml-1">from last month</span>
           </div>
@@ -167,6 +168,7 @@ export default function ReportsPage() {
   const [dateRange, setDateRange] = useState("current-month");
   const [reportType, setReportType] = useState("overview");
   const [reportDateRange, setReportDateRange] = useState("current_month");
+  const toast = useToast();
 
   const { data: reports } = useReports();
   const reportData = reports?.data?.kpis;
@@ -234,8 +236,17 @@ export default function ReportsPage() {
 
   const handleGenerateReport = async (reportName: string) => {
     try {
-      const data = await fetchReport(reportName, reportDateRange);
-      exportToExcel(reportName, data);
+      const response: any = await fetchReport(reportName, reportDateRange);
+      if(response?.data.rows && response?.data.rows.length === 0){
+        toast.toast("No data found", { variant: "error" });
+        return;
+      }
+      if(Array.isArray(response.data) && response.data.length === 0){
+        toast.toast("No data found", { variant: "error" });
+        return;
+      }
+      
+      exportToExcel(reportName, response);
     } catch (err: any) {
       console.log(err.message || "Failed to fetch report");
     }
