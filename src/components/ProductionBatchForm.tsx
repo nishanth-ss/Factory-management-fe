@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -15,7 +14,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
 import { useRawMaterialBatches } from "@/hooks/useRawMaterialBatch";
-import { useCreateProduction } from "@/hooks/useProduction";
+import { useCreateProduction, useUpdateProduction } from "@/hooks/useProduction";
 import type { ProductionType } from "@/types/productionTypes";
 import { useProducts } from "@/hooks/useProduct";
 import { useRawMaterials } from "@/hooks/useRawMaterial";
@@ -61,16 +60,18 @@ type ProductionBatchFormData = z.infer<typeof productionBatchFormSchema>;
 
 interface ProductionBatchFormProps {
   onCancel?: () => void;
+  selectedProduction?: any;
 }
 
-export default function ProductionBatchForm({ onCancel }: ProductionBatchFormProps) {
+export default function ProductionBatchForm({ onCancel, selectedProduction }: ProductionBatchFormProps) {
   // const { data: batches } = useRawMaterialBatches({ page: 1, limit: "all", search: "" });
   // const batchesData = batches?.data ?? [];
   const createProductionMutation = useCreateProduction();
-  const { data: batches } = useRawMaterialBatches({});
+  const { data: batches, isLoading: batchesLoading } = useRawMaterialBatches({ page: 1, limit: 1000, search: "" });
   const productionBatchData = batches?.data ?? [];
+  const updateProductionMutation = useUpdateProduction();
 
-  const { data: products } = useProducts({});
+  const { data: products, isLoading: productsLoading } = useProducts({ page: 1, limit: 1000, search: "" });
   const productsData = products?.result ?? [];
 
   const form = useForm<ProductionBatchFormData>({
@@ -83,7 +84,34 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
       materials: [],
       operationExpenses: [],
     },
-  });
+  });  
+
+  useEffect(() => {
+    if (selectedProduction?.id && !batchesLoading && !productsLoading && productionBatchData.length && productsData.length) {
+      form.reset({
+        batch_no: selectedProduction.batch_id || "",
+        product_id: selectedProduction.product_id || "",
+        article_sku: selectedProduction.article_sku || "",
+        planned_qty: Number(selectedProduction.planned_qty) || 0,
+        start_date: selectedProduction.batch_start_date ? new Date(selectedProduction.batch_start_date) : undefined,
+        end_date: selectedProduction.batch_end_date ? new Date(selectedProduction.batch_end_date) : undefined,
+        materials: selectedProduction.batch_consumptions || [],
+        operationExpenses: selectedProduction.batch_expenses || [],
+      });
+    } else {
+      form.reset({
+        batch_no: generateBatchNo(),
+        product_id: "",
+        article_sku: "",
+        planned_qty: 0,
+        materials: [],
+        operationExpenses: [],
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProduction?.id, batchesLoading, productsLoading, productionBatchData.length, productsData.length]);
+  
+
 
   const { data: materials } = useRawMaterials({ page: 1, limit: "all", search: "" });
   const materialsData = materials?.data ?? [];
@@ -118,8 +146,10 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
 
   // Auto-generate batch number on mount
   useEffect(() => {
-    form.setValue('batch_no', generateBatchNo());
-  }, [form]);
+    if (!selectedProduction) {
+      form.setValue("batch_no", generateBatchNo());
+    }
+  }, [selectedProduction, form]);
 
   const addMaterial = () => {
     append({ raw_material_id: "", qty_consumed: 0, rate: 0 });
@@ -133,7 +163,6 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
       planned_qty: data.planned_qty,
       start_date: data.start_date ? data.start_date.toISOString() : "",
       end_date: data.end_date ? data.end_date.toISOString() : "",
-      status: "planned",
       batch_consumptions: data.materials?.map((m) => ({
         raw_material_id: m.raw_material_id,
         qty_consumed: m.qty_consumed,
@@ -146,11 +175,20 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
         description: e.description,
       })) ?? [] as any,
     };
-    createProductionMutation.mutate(payload, {
-      onSuccess: () => {
-        onCancel?.();
-      },
-    });
+
+    if (selectedProduction) {
+      updateProductionMutation.mutate({ id: selectedProduction.id, data: payload }, {
+        onSuccess: () => {
+          onCancel?.();
+        },
+      });
+    } else {
+      createProductionMutation.mutate(payload, {
+        onSuccess: () => {
+          onCancel?.();
+        },
+      });
+    }
   };
 
   const addExpense = () => {
@@ -170,15 +208,15 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
                 <FormLabel>Batch Number</FormLabel>
                 <FormControl>
                   <Select
-                    {...field}
-                    onValueChange={(value) => field.onChange(value)}
+                    value={selectedProduction?.batch_id || field.value}
+                    onValueChange={field.onChange}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select batch number" />
                     </SelectTrigger>
                     <SelectContent>
-                      {productionBatchData?.map((batch: any, index: number) => (
-                        <SelectItem key={index} value={batch.id}>
+                      {productionBatchData?.map((batch: any) => (
+                        <SelectItem key={batch.id} value={batch.id}>
                           {batch.batch_no}
                         </SelectItem>
                       ))}
@@ -190,25 +228,25 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
             )}
           />
 
-          {/* Batch Number */}
+          {/* Product */}
           <FormField
             control={form.control}
-            name="product_id"
+            name={`product_id`}
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Product</FormLabel>
                 <FormControl>
                   <Select
-                    {...field}
-                    onValueChange={(value) => field.onChange(value)}
+                    value={selectedProduction?.product_id || field.value}
+                    onValueChange={field.onChange}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select product" />
                     </SelectTrigger>
                     <SelectContent>
-                      {productsData?.map((product: any, index: number) => (
-                        <SelectItem key={index} value={product?.id}>
-                          {product?.product_name}
+                      {productsData?.map((product: any) => (
+                        <SelectItem key={product.id} value={String(product.id)}>
+                          {product.product_name} - {product.product_code}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -259,14 +297,14 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
           />
 
           {/* Status (auto-set to planned) */}
-          <FormItem>
+          {/* <FormItem>
             <FormLabel>Status</FormLabel>
             <div className="flex items-center h-9">
               <Badge variant="secondary" className="bg-status-draft text-gray-500">
                 Planned
               </Badge>
             </div>
-          </FormItem>
+          </FormItem> */}
         </div>
 
         {/* Date Range */}
@@ -597,13 +635,19 @@ export default function ProductionBatchForm({ onCancel }: ProductionBatchFormPro
           >
             Cancel
           </Button>
-          <Button
+          {!selectedProduction?.id ? <Button
             type="submit"
             disabled={createProductionMutation.isPending}
             data-testid="button-create"
           >
             {createProductionMutation.isPending ? "Creating..." : "Create Batch"}
-          </Button>
+          </Button> : <Button
+            type="submit"
+            disabled={updateProductionMutation.isPending}
+            data-testid="button-create"
+          >
+            {updateProductionMutation.isPending ? "Updating..." : "Update Batch"}
+          </Button>}
         </div>
       </form>
     </Form>

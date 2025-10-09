@@ -1,11 +1,9 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
-  BarChart3, 
   TrendingUp, 
   TrendingDown,
   Package, 
@@ -15,11 +13,13 @@ import {
   Calendar,
   Download,
   FileText,
-  PieChart,
   Activity
 } from "lucide-react";
 import { formatINR } from "@/lib/currency";
-import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { format, startOfMonth, endOfMonth } from "date-fns";
+import {  useReportQuery, useReports } from "@/hooks/useReports";
+import { exportToExcel } from "@/components/ExportToExcel";
+import { useToast } from "@/hooks/useNoistackToast";
 
 interface MetricCard {
   title: string;
@@ -34,6 +34,16 @@ interface ChartData {
   name: string;
   value: number;
   color?: string;
+}
+
+interface ProductValue {
+  product_name: string;
+  total_production_value: string;
+}
+
+interface ExpenditureItem {
+  category: string;
+  total_amount: string;
 }
 
 function MetricSummaryCard({ metric }: { metric: MetricCard }) {
@@ -71,7 +81,7 @@ function MetricSummaryCard({ metric }: { metric: MetricCard }) {
               metric.changeType === "positive" ? "text-green-500" : 
               metric.changeType === "negative" ? "text-red-500" : ""
             }>
-              {metric.change > 0 ? "+" : ""}{metric.change.toFixed(1)}%
+              {metric?.change > 0 ? "+" : ""}{metric?.change.toFixed(1)}%
             </span>
             <span className="ml-1">from last month</span>
           </div>
@@ -82,7 +92,7 @@ function MetricSummaryCard({ metric }: { metric: MetricCard }) {
 }
 
 function SimpleBarChart({ data, title }: { data: ChartData[]; title: string }) {
-  const maxValue = Math.max(...data.map(d => d.value));
+  const maxValue = Math.max(...(data?.map(d => d.value) ?? [0]));
   
   return (
     <Card>
@@ -91,7 +101,7 @@ function SimpleBarChart({ data, title }: { data: ChartData[]; title: string }) {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {data.map((item, index) => (
+          {data?.map((item, index) => (
             <div key={index} className="space-y-1">
               <div className="flex justify-between text-sm">
                 <span className="font-medium">{item.name}</span>
@@ -127,6 +137,7 @@ function ReportCard({
   icon: any; 
   onGenerate: () => void;
 }) {
+  
   return (
     <Card className="hover-elevate">
       <CardContent className="p-6">
@@ -156,60 +167,89 @@ function ReportCard({
 export default function ReportsPage() {
   const [dateRange, setDateRange] = useState("current-month");
   const [reportType, setReportType] = useState("overview");
+  const [reportDateRange, setReportDateRange] = useState("current_month");
+  const toast = useToast();
 
-  // Mock data - in real app this would come from APIs
-  const metrics: MetricCard[] = [
+  const { data: reports } = useReports();
+  const reportData = reports?.data?.kpis;
+  const productionData = reports?.data?.productValues;
+  const compareProduction = reportData?.kpi_percentage
+  const expenditureBreakdown = reports?.data?.expenditureBreakdown;
+  const { fetchReport } = useReportQuery();
+    const metrics: MetricCard[] = [
     {
       title: "Total Production",
-      value: 1250,
-      change: 15.3,
-      changeType: "positive",
+      value: Number(reportData?.total_production),
+      change: compareProduction?.total_production,
+      changeType: compareProduction?.total_production > 0 ? "positive" : "negative",
       icon: Factory,
-      format: "number"
+      format: "number",
     },
     {
       title: "Material Efficiency",
-      value: 94.2,
-      change: 2.1,
-      changeType: "positive",
+      value: Number(reportData?.industrial_efficiency),
+      change: compareProduction?.industrial_efficiency,
+      changeType: compareProduction?.industrial_efficiency > 0 ? "positive" : "negative",
       icon: Package,
-      format: "percentage"
+      format: "percentage",
     },
     {
       title: "Total Expenditure",
-      value: 2850000,
-      change: -8.5,
-      changeType: "positive",
+      value: Number(reportData?.total_expenditures),
+      change: compareProduction?.total_expenditures,
+      changeType: compareProduction?.total_expenditures > 0 ? "positive" : "negative",
       icon: IndianRupee,
-      format: "currency"
+      format: "currency",
     },
     {
       title: "Active Vendors",
-      value: 28,
-      change: 12.0,
-      changeType: "positive",
+      value: Number(reportData?.active_vendors),
+      change: compareProduction?.active_vendors,
+      changeType: compareProduction?.active_vendors > 0 ? "positive" : "negative",
       icon: ShoppingCart,
-      format: "number"
+      format: "number",
     },
   ];
 
-  const productionData: ChartData[] = [
-    { name: "Widget A", value: 450000, color: "#3b82f6" },
-    { name: "Widget B", value: 380000, color: "#10b981" },
-    { name: "Widget C", value: 320000, color: "#f59e0b" },
-    { name: "Widget D", value: 280000, color: "#ef4444" },
-  ];
+  const transformProductionData = (productValues: ProductValue[]): ChartData[] => {
+    const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"]; // extra colors for flexibility
+  
+    return productValues?.map((item, index) => ({
+      name: item.product_name,
+      value: Number(item.total_production_value),
+      color: colors[index % colors.length], 
+    }));
+  };
 
-  const expenditureData: ChartData[] = [
-    { name: "Raw Materials", value: 1200000, color: "#8b5cf6" },
-    { name: "Production Costs", value: 850000, color: "#06b6d4" },
-    { name: "Procurement", value: 450000, color: "#84cc16" },
-    { name: "Operations", value: 350000, color: "#f97316" },
-  ];
+  const transformExpenditureData = (
+    expenditureBreakdown: ExpenditureItem[]
+  ): ChartData[] => {
+    // Define color palette (can be adjusted to match your design)
+    const colors = ["#8b5cf6", "#06b6d4", "#84cc16", "#f97316", "#e11d48", "#0ea5e9"];
+  
+    return expenditureBreakdown?.map((item, index) => ({
+      name: item.category,
+      value: Number(item.total_amount),
+      color: colors[index % colors.length], // cycle through colors if there are more categories
+    }));
+  };
 
-  const handleGenerateReport = (reportName: string) => {
-    // Mock report generation - in real app would trigger download
-    console.log(`Generating ${reportName} report...`);
+  const handleGenerateReport = async (reportName: string) => {
+    try {
+      const response: any = await fetchReport(reportName, reportDateRange);
+      if(response?.data.rows && response?.data.rows.length === 0){
+        toast.toast("No data found", { variant: "error" });
+        return;
+      }
+      if(Array.isArray(response.data) && response.data.length === 0){
+        toast.toast("No data found", { variant: "error" });
+        return;
+      }
+      
+      exportToExcel(reportName, response);
+    } catch (err: any) {
+      console.log(err.message || "Failed to fetch report");
+    }
   };
 
   return (
@@ -271,54 +311,68 @@ export default function ReportsPage() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <SimpleBarChart 
-          data={productionData} 
+          data={transformProductionData(productionData)} 
           title="Production Value by Product" 
         />
         <SimpleBarChart 
-          data={expenditureData} 
+          data={transformExpenditureData(expenditureBreakdown)} 
           title="Expenditure Breakdown" 
         />
       </div>
 
       {/* Report Generation */}
       <div className="space-y-4">
-        <h2 className="text-2xl font-semibold">Generate Reports</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-semibold">Generate Reports</h2>
+          <Select value={reportDateRange} onValueChange={setReportDateRange}>
+          <SelectTrigger className="w-[200px]" data-testid="select-date-range">
+            <SelectValue placeholder="Date Range" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="current_month">Current Month</SelectItem>
+            <SelectItem value="last_month">Last Month</SelectItem>
+            <SelectItem value="last_3_months">Last 3 Months</SelectItem>
+            <SelectItem value="last_6_months">Last 6 Months</SelectItem>
+            <SelectItem value="current_year">Current Year</SelectItem>
+          </SelectContent>
+        </Select>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <ReportCard
             title="Production Summary"
             description="Detailed production metrics, efficiency, and batch analysis"
             icon={Factory}
-            onGenerate={() => handleGenerateReport("Production Summary")}
+            onGenerate={() => handleGenerateReport("production-report")}
           />
           <ReportCard
             title="Financial Report"
             description="Cost analysis, expenditure breakdown, and budget variance"
             icon={IndianRupee}
-            onGenerate={() => handleGenerateReport("Financial Report")}
+            onGenerate={() => handleGenerateReport("financial-report")}
           />
           <ReportCard
             title="Inventory Analysis"
             description="Stock levels, material consumption, and reorder recommendations"
             icon={Package}
-            onGenerate={() => handleGenerateReport("Inventory Analysis")}
+            onGenerate={() => handleGenerateReport("inventory-report")}
           />
           <ReportCard
             title="Vendor Performance"
             description="Vendor reliability, delivery times, and cost analysis"
             icon={ShoppingCart}
-            onGenerate={() => handleGenerateReport("Vendor Performance")}
+            onGenerate={() => handleGenerateReport("vendor-report")}
           />
           <ReportCard
             title="Quality Control"
             description="QC metrics, batch approvals, and rejection analysis"
             icon={Activity}
-            onGenerate={() => handleGenerateReport("Quality Control")}
+            onGenerate={() => handleGenerateReport("quality-control-report")}
           />
           <ReportCard
             title="Operational Efficiency"
             description="Overall efficiency metrics and optimization opportunities"
             icon={TrendingUp}
-            onGenerate={() => handleGenerateReport("Operational Efficiency")}
+            onGenerate={() => handleGenerateReport("quality-operationEfficiency-report")}
           />
         </div>
       </div>

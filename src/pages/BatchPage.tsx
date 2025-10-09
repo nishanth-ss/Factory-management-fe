@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useDebounce } from "@/hooks/useDebounce";
 import DataTable from "@/components/DataTable";
 import { ViewDialog } from "@/components/common/ViewDialogBox";
+import StatusBadge from "@/components/StatusBadge";
 
 interface BatchFormData {
     id?: string;
@@ -60,10 +61,12 @@ const BatchPage = () => {
         {
             header: "Status",
             key: "status",
+            render: (_value: any, row: any) => <StatusBadge status={row.status} />,
         },
         {
             header: "Notes",
             key: "notes",
+            render: (_value: any, row: any) => row.notes,
         },
         {
             header: "Actions",

@@ -19,11 +19,13 @@ export type IndentStatus =
   | "approved"
   | "rejected"
   | "in-progress"
+  | "in_progress"
   | "in_process"
   | "completed"
   | "planned"
   | "qc"
   | "released"
+  | "received"
   | "partially_received"
   | "closed";
 

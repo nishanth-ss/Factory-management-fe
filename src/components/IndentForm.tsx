@@ -79,14 +79,14 @@ export default function IndentForm({ setIsCreateDialogOpen, selectedIndent }: { 
 
   const handleSubmit = (data: IndentFormData) => {
     if (selectedIndent) {
-      updateIndent.mutate({ id: selectedIndent.id ?? "", data: { ...data } }, {
+      updateIndent.mutate({ id: selectedIndent.id ?? "", data: { ...data} }, {
         onSuccess: () => {
           form.reset();
           setIsCreateDialogOpen(false);
         },
       });
     } else {
-      createIndent.mutate(data, {
+      createIndent.mutate({...data, status: "approved" }, {
         onSuccess: () => {
           form.reset();
           setIsCreateDialogOpen(false);

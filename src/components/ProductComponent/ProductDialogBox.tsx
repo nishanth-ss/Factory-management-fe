@@ -46,14 +46,12 @@ const ProductDialog: React.FC<ProductDialogProps> = ({
 
     useEffect(() => {
         if (Object.keys(selectedProduct || {}).length > 0) {
-            // Reset form when dialog opens — either with selectedProduct or empty values
             form.reset({
                 product_code: selectedProduct?.product_code,
                 product_name: selectedProduct?.product_name,
                 description: selectedProduct?.description,
             });
         } else {
-            // Creating new
             form.reset({
                 product_code: "",
                 product_name: "",
@@ -64,18 +62,28 @@ const ProductDialog: React.FC<ProductDialogProps> = ({
 
     const onSubmit = (data: any) => {
         if (Object.keys(selectedProduct || {}).length > 0) {
-            
-            updateProduct.mutate({...data,id:selectedProduct.id},{
+
+            updateProduct.mutate({ ...data, id: selectedProduct.id }, {
                 onSuccess: () => {
                     handleClose();
                     setSelectedProduct(null);
+                    form.reset({
+                        product_code: "",
+                        product_name: "",
+                        description: "",
+                    });
                 },
             });
         } else {
-            createProduct.mutate(data,{
+            createProduct.mutate(data, {
                 onSuccess: () => {
                     handleClose();
                     setSelectedProduct(null);
+                    form.reset({
+                        product_code: "",
+                        product_name: "",
+                        description: "",
+                    });
                 },
             });
         }
@@ -83,7 +91,7 @@ const ProductDialog: React.FC<ProductDialogProps> = ({
 
     return (
 
-        <Dialog open={isCreateDialogOpen} onOpenChange={() => {setIsCreateDialogOpen(!isCreateDialogOpen), setSelectedProduct(null)}}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={() => { setIsCreateDialogOpen(!isCreateDialogOpen), setSelectedProduct(null) }}>
             <DialogTrigger asChild>
                 <Button data-testid="button-create-material">
                     <Plus className="h-4 w-4 mr-2" />
