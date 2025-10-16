@@ -196,8 +196,9 @@ export default function GRNForm({ onSubmit, setIsCreateDialogOpen, selectedGrn, 
     if (!path) return "";
     const fixedPath = path.replace(/\\/g, "/");
     // Adjust this base according to your backend
-    const baseUrl = import.meta.env.VITE_API_BASE_URL;
-    return `${baseUrl}/${fixedPath}`;
+    const baseUrl = import.meta.env.VITE_API_URL;   
+    const cleanUrl = baseUrl.replace("/api", "") 
+    return `${cleanUrl}${fixedPath}`;
   }
 
   const handleDeleteFile = (id: string) => {

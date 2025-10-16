@@ -73,7 +73,7 @@ export default function GRNPage() {
               </DialogTrigger>
               <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Create New GRN</DialogTitle>
+                  <DialogTitle>{selectedGrn ? "Update GRN" :"Create New GRN"}</DialogTitle>
                 </DialogHeader>
                 <GRNForm 
                   onSubmit={() => {
