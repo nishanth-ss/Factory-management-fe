@@ -34,6 +34,22 @@ export const useIndents = (params?: { page?: number; limit?: number; search?: st
   return query;
 };
 
+export const useCreateNewIndent = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: (data: any) => apiRequest<any>("POST", "/indent", data),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["indents"] });
+      toast(res?.message, { variant: "success" });
+    },
+    onError: (error) => {
+      toast(error?.message, { variant: "error" });
+    },
+  });
+};
+
+
 export const useCreateIndent = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();

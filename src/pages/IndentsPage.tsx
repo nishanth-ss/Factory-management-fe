@@ -2,9 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import DataTable from "@/components/DataTable";
 import StatusBadge from "@/components/StatusBadge";
-import IndentForm from "@/components/IndentForm";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Eye, Edit } from "lucide-react";
+import { Eye, Edit } from "lucide-react";
 import type { IndentStatus, IndentType } from "@/types/indent";
 import { useIndents } from "@/hooks/useIndent";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -12,9 +10,9 @@ import { useSelector } from "react-redux";
 import type { RootState } from "@/store/store";
 import { getRoleIdFromAuth } from "@/lib/utils";
 import { ViewDialog } from "@/components/common/ViewDialogBox";
+import IndentFormDialog from "@/components/IndentNewForm";
 
 export default function IndentsPage() {
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedIndent, setSelectedIndent] = useState<IndentType | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [page, setPage] = useState(1);
@@ -75,7 +73,7 @@ export default function IndentsPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => { setIsCreateDialogOpen(true), setSelectedIndent(row) }}
+            onClick={() => {setSelectedIndent(row) }}
             data-testid={`button-edit-${row.originalId}`}
             title="Update Status"
             disabled={roleId !== 1}
@@ -95,7 +93,9 @@ export default function IndentsPage() {
           <p className="text-muted-foreground">Manage material requisition requests</p>
         </div>
 
-        <Dialog
+        <IndentFormDialog />
+
+        {/* <Dialog
           open={isCreateDialogOpen}
           onOpenChange={(open) => {
             setIsCreateDialogOpen(open);
@@ -116,7 +116,7 @@ export default function IndentsPage() {
             </DialogHeader>
             <IndentForm setIsCreateDialogOpen={setIsCreateDialogOpen} selectedIndent={selectedIndent || undefined} />
           </DialogContent>
-        </Dialog>
+        </Dialog> */}
       </div>
 
       <DataTable
