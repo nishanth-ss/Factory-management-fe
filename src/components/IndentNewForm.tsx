@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import {
     Dialog,
     DialogContent,
@@ -31,25 +32,28 @@ import {
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 
-import { useForm, useFieldArray, useWatch } from "react-hook-form";
+import { useForm, useFieldArray, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Check, Plus, Trash2, ChevronDown } from "lucide-react";
 import { useRawMaterials } from "@/hooks/useRawMaterial";
 import { useCreateNewIndent } from "@/hooks/useIndent";
+import { useState } from "react";
+import { useUnits } from "@/hooks/useUnit";
+import { useDebounce } from "@/hooks/useDebounce";
 
 const itemSchema = z.object({
-    material: z.string().min(1, "Material is required"),
-    article_name: z.string().min(1, "Article name is required"),
-    weight: z.number().min(0),
-    uom: z.string().min(1),
-    rate: z.number(),
-    value: z.number(),
+    material: z.string().refine((val) => val.trim() !== "", "Material is required"),
+    article_name: z.string().refine((val) => val.trim() !== "", "Article name is required"),
+    weight: z.number().refine((val) => val > 0, "Weight must be greater than 0"),
+    uom: z.string().refine((val) => val.trim() !== "", "UOM is required"),
+    rate: z.number().refine((val) => val > 0, "Rate must be greater than 0"),
+    value: z.number().refine((val) => val > 0, "Value must be greater than 0"),
 });
 
 const formSchema = z.object({
-    indent_no: z.string().min(1),
-    unit_name: z.string().min(1),
+    indent_no: z.string().refine((val) => val.trim() !== "", "Indent No is required"),
+    unit_name: z.string().refine((val) => val.trim() !== "", "Unit Name is required"),
     qty: z.number().min(1),
     date: z.string().min(1),
     items: z.array(itemSchema),
@@ -66,7 +70,7 @@ const formSchema = z.object({
     profitPercent: z.number(),
     wearTearPercent: z.number(),
     gstPercent: z.number(),
-    rd: z.number(),
+    rd: z.number().optional(),
     remarks: z.string().optional(),
     status: z.enum(["draft", "pending", "submitted", "approved", "rejected", "in-progress", "in_process", "completed", "planned", "qc", "released", "partially_received", "closed"]),
 });
@@ -102,7 +106,6 @@ export default function IndentFormDialog() {
             status: "draft",
         },
     });
-    console.log(errors);
 
     const { fields, append, remove } = useFieldArray({
         control,
@@ -112,6 +115,28 @@ export default function IndentFormDialog() {
     const createIndent = useCreateNewIndent();
     const { data: rawMaterials } = useRawMaterials({});
     const rawMaterialsData = rawMaterials?.data || [];
+    const [searchTerm, setSearchTerm] = useState("");
+    const [selectedUnit, setSelectedUnit] = useState<any>(null);
+    const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
+    const { data: unitData, refetch } = useUnits(
+        { page: 1, limit: 10, search: debouncedSearchTerm },
+        { enabled: false }// only fetch when searchTerm exists
+    );
+    const units = unitData?.data?.data || [];
+    const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (debouncedSearchTerm) {
+            refetch();
+        }
+    }, [debouncedSearchTerm, refetch]);
+
+
+    // Input handler
+    const handleSearch = (value: string) => {
+        setSearchTerm(value);
+    };
 
     const items = useWatch({ control, name: "items" });
     const skilled = useWatch({ control, name: "skilled" });
@@ -187,25 +212,71 @@ export default function IndentFormDialog() {
                     {/* Basic Info */}
                     <div className="flex flex-wrap gap-4">
                         <div className="flex-1 min-w-[200px]">
-                            <Label>Indent No</Label>
+                            <Label>Indent No <span className="text-red-500">*</span></Label>
                             <Input {...register("indent_no")} />
+                            {errors.indent_no && (
+                                <p className="text-red-500">{errors.indent_no.message}</p>
+                            )}
                         </div>
                         <div className="flex-1 min-w-[200px]">
-                            <Label>Unit Name</Label>
-                            <Input {...register("unit_name")} />
+                            <Label>Unit Name <span className="text-red-500">*</span></Label>
+                            <Controller
+                                name="unit_name"
+                                control={control}
+                                render={({ field }) => (
+                                    <div className="relative">
+                                        <Input
+                                            placeholder="Type to search..."
+                                            value={field.value || ""}
+                                            onFocus={() => setUnitDropdownOpen(true)} // open dropdown on focus
+                                            onChange={(e) => {
+                                                field.onChange(e.target.value);
+                                                handleSearch(e.target.value);
+                                                setUnitDropdownOpen(true); // keep open while typing
+                                            }}
+                                        />
+                                        {unitDropdownOpen && units.length > 0 && (
+                                            <ul className="absolute z-10 bg-white border mt-1 max-h-48 overflow-y-auto w-full rounded-md shadow-md">
+                                                {units.map((unit: any) => (
+                                                    <li
+                                                        key={unit.id}
+                                                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                                                        onClick={() => {
+                                                            setSelectedUnit(unit);
+                                                            field.onChange(unit.unit_name);
+                                                            setUnitDropdownOpen(false); // <-- close dropdown after selection
+                                                        }}
+                                                    >
+                                                        {unit.unit_name}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                )}
+                            />
+                            {errors.unit_name && (
+                                <p className="text-red-500">{errors.unit_name.message}</p>
+                            )}
                         </div>
                         <div className="flex-1 min-w-[200px]">
-                            <Label>Quantity</Label>
+                            <Label>Quantity <span className="text-red-500">*</span></Label>
                             <Input
                                 type="number"
                                 {...register("qty", { valueAsNumber: true })}
                                 onFocus={(e) => e.target.value === "0" && e.target.select()}
                                 onWheel={(e) => e.currentTarget.blur()}
                             />
+                            {errors.qty && (
+                                <p className="text-red-500">{errors.qty.message}</p>
+                            )}
                         </div>
                         <div className="flex-1 min-w-[200px]">
-                            <Label>Date</Label>
+                            <Label>Date <span className="text-red-500">*</span></Label>
                             <Input type="date" {...register("date")} />
+                            {errors.date && (
+                                <p className="text-red-500">{errors.date.message}</p>
+                            )}
                         </div>
                     </div>
 
@@ -239,8 +310,12 @@ export default function IndentFormDialog() {
                             >
                                 {/* Material */}
                                 <div>
-                                    <Label>Material</Label>
-                                    <Popover>
+                                    <Label>Material <span className="text-red-500">*</span></Label>
+                                    <Popover
+                                        key={field.id}
+                                        open={openIndex === index}
+                                        onOpenChange={(isOpen) => setOpenIndex(isOpen ? index : null)}
+                                    >
                                         <PopoverTrigger asChild>
                                             <Button
                                                 variant="outline"
@@ -251,6 +326,7 @@ export default function IndentFormDialog() {
                                                 <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
                                             </Button>
                                         </PopoverTrigger>
+
                                         <PopoverContent className="p-0 w-[250px]">
                                             <Command>
                                                 <CommandInput placeholder="Search material..." />
@@ -259,9 +335,10 @@ export default function IndentFormDialog() {
                                                     {rawMaterialsData.map((mat) => (
                                                         <CommandItem
                                                             key={mat.id}
-                                                            onSelect={() =>
-                                                                setValue(`items.${index}.material`, mat.name)
-                                                            }
+                                                            onSelect={() => {
+                                                                setValue(`items.${index}.material`, mat.name);
+                                                                setOpenIndex(null); // close the dropdown
+                                                            }}
                                                         >
                                                             <Check
                                                                 className={cn(
@@ -278,30 +355,42 @@ export default function IndentFormDialog() {
                                             </Command>
                                         </PopoverContent>
                                     </Popover>
+
+                                    {errors.items?.[index]?.material && (
+                                        <p className="text-red-500">{errors.items?.[index]?.material?.message}</p>
+                                    )}
                                 </div>
 
                                 <div>
-                                    <Label>Article Name</Label>
+                                    <Label>Article Name <span className="text-red-500">*</span></Label>
                                     <Input {...register(`items.${index}.article_name`)} />
+                                    {errors.items?.[index]?.article_name && (
+                                        <p className="text-red-500">{errors.items?.[index]?.article_name?.message}</p>
+                                    )}
                                 </div>
 
                                 <div>
-                                    <Label>Weight</Label>
+                                    <Label>Weight <span className="text-red-500">*</span></Label>
                                     <Input
                                         type="number"
+                                        step="0.01"
                                         {...register(`items.${index}.weight`, { valueAsNumber: true })}
                                         onWheel={(e) => e.currentTarget.blur()}
                                         onFocus={(e) => e.target.value === "0" && e.target.select()}
                                         onChange={(e) => {
                                             const weight = parseFloat(e.target.value) || 0;
                                             const rate = watch(`items.${index}.rate`) || 0;
+                                            setValue(`items.${index}.weight`, weight);
                                             setValue(`items.${index}.value`, rate * weight);
                                         }}
                                     />
+                                    {errors.items?.[index]?.weight && (
+                                        <p className="text-red-500">{errors.items?.[index]?.weight?.message}</p>
+                                    )}
                                 </div>
 
                                 <div>
-                                    <Label>UOM</Label>
+                                    <Label>UOM <span className="text-red-500">*</span></Label>
                                     <Select
                                         onValueChange={(val) => setValue(`items.${index}.uom`, val)}
                                         defaultValue={field.uom}
@@ -315,31 +404,43 @@ export default function IndentFormDialog() {
                                             <SelectItem value="nos">Nos</SelectItem>
                                         </SelectContent>
                                     </Select>
+                                    {errors.items?.[index]?.uom && (
+                                        <p className="text-red-500">{errors.items?.[index]?.uom?.message}</p>
+                                    )}
                                 </div>
 
                                 <div>
-                                    <Label>Rate (₹)</Label>
+                                    <Label>Rate (₹) <span className="text-red-500">*</span></Label>
                                     <Input
                                         type="number"
+                                        step="0.01"
                                         {...register(`items.${index}.rate`, { valueAsNumber: true })}
                                         onWheel={(e) => e.currentTarget.blur()}
                                         onFocus={(e) => e.target.value === "0" && e.target.select()}
                                         onChange={(e) => {
                                             const rate = parseFloat(e.target.value) || 0;
                                             const weight = watch(`items.${index}.weight`) || 0;
+                                            setValue(`items.${index}.rate`, rate);
                                             setValue(`items.${index}.value`, rate * weight);
                                         }}
                                     />
+                                    {errors.items?.[index]?.rate && (
+                                        <p className="text-red-500">{errors.items?.[index]?.rate?.message}</p>
+                                    )}
                                 </div>
 
                                 <div>
                                     <Label>Value (₹)</Label>
                                     <Input
                                         type="number"
+                                        step="0.01"
                                         readOnly
                                         {...register(`items.${index}.value`, { valueAsNumber: true })}
-                                        onWheel={(e) => e.currentTarget.blur()}
+                                        value={(watch(`items.${index}.value`) || 0).toFixed(2)}
                                     />
+                                    {errors.items?.[index]?.value && (
+                                        <p className="text-red-500">{errors.items?.[index]?.value?.message}</p>
+                                    )}
                                 </div>
 
                                 <div className="flex justify-center">
@@ -454,9 +555,16 @@ export default function IndentFormDialog() {
                                 <Label>R/D (₹)</Label>
                                 <Input
                                     type="number"
-                                    {...register("rd", { valueAsNumber: true })}
-                                    onFocus={(e) => e.target.select()}
+                                    step="0.01"
+                                    defaultValue={0}
+                                    {...register("rd", {
+                                        valueAsNumber: true,
+                                        setValueAs: (v) => (v === "" ? 0 : parseFloat(v)),
+                                    })}
+                                    onWheel={(e) => e.currentTarget.blur()}
+                                    onFocus={(e) => e.target.value === "0" && e.target.select()}
                                 />
+
                             </div>
                             <div>
                                 <Label>GST (%)</Label>
