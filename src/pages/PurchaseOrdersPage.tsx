@@ -16,14 +16,12 @@ import { usePurchaseOrders, useCreatePurchaseOrder, useUpdatePurchaseOrder } fro
 import { useDebounce } from "@/hooks/useDebounce";
 import FormattedDate from "@/lib/formatDate";
 import { getRoleIdFromAuth } from "@/lib/utils";
-import { useIndents } from "@/hooks/useIndent";
 import { useVendors } from "@/hooks/useVendor";
 import { useRawMaterials } from "@/hooks/useRawMaterial";
 
 const insertPurchaseOrderSchema = z.object({
   po_no: z.string().min(1, "PO Number is required"),
   vendor_id: z.string().uuid("Invalid vendor ID"),
-  indent_id: z.string().min(1, "Indent Number is required"),
   status: z.enum(["draft", "submitted", "approved", "partially_received", "closed"]).optional(),
   total_value: z.number().min(0, "Total value cannot be negative").optional(),
   expected_delivery: z.string().optional(), // ISO date string from form
@@ -70,8 +68,6 @@ export default function PurchaseOrdersPage() {
   const createMutation = useCreatePurchaseOrder();
   const statusUpdateMutation = useUpdatePurchaseOrder();
   const roleId = getRoleIdFromAuth();
-  const { data: indentApiResponse } = useIndents();
-  const indents = indentApiResponse?.data?.indents;
 
   // Generate unique PO number
   const generatePONumber = () => {
@@ -88,7 +84,6 @@ export default function PurchaseOrdersPage() {
       purchaseOrder: {
         po_no: generatePONumber(),
         vendor_id: "",
-        indent_id: "",
         total_value: 0,
         expected_delivery: "",
         remarks: "",
@@ -134,7 +129,6 @@ export default function PurchaseOrdersPage() {
       vendor_id: data.purchaseOrder.vendor_id,
       batch_no: data.purchaseOrder.batch_no,
       expected_delivery: data.purchaseOrder.expected_delivery || "",
-      indent_id: data.purchaseOrder.indent_id,
       items: cleanedItems,
       status: data.status,
     };
@@ -178,7 +172,6 @@ export default function PurchaseOrdersPage() {
 
   const purchaseOrderColumns = [
     { key: "purchase_order_id", header: "PO Number", sortable: true },
-    { key: "indent_no", header: "Indent Number", sortable: true },
     { key: "vendor_name", header: "Vendor", sortable: true },
     {
       key: "status",
@@ -298,35 +291,10 @@ export default function PurchaseOrdersPage() {
 
                       <FormField
                         control={form.control}
-                        name="purchaseOrder.indent_id"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Indent Number</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value ?? ""}>
-                              <FormControl>
-                                <SelectTrigger data-testid="select-indent">
-                                  <SelectValue placeholder="Select indent" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {indents?.map((indent: any) => (
-                                  <SelectItem key={indent.id} value={String(indent.id)}>
-                                    {indent.indent_no}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
                         name="purchaseOrder.expected_delivery"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Expected Delivery</FormLabel>
+                            <FormLabel>Date</FormLabel>
                             <FormControl>
                               <Input
                                 type="date"

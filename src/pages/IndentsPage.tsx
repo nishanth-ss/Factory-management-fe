@@ -2,9 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import DataTable from "@/components/DataTable";
 import StatusBadge from "@/components/StatusBadge";
-import IndentForm from "@/components/IndentForm";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Eye, Edit } from "lucide-react";
+import { Eye, Edit } from "lucide-react";
 import type { IndentStatus, IndentType } from "@/types/indent";
 import { useIndents } from "@/hooks/useIndent";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -12,9 +10,9 @@ import { useSelector } from "react-redux";
 import type { RootState } from "@/store/store";
 import { getRoleIdFromAuth } from "@/lib/utils";
 import { ViewDialog } from "@/components/common/ViewDialogBox";
+import IndentFormDialog from "@/components/IndentNewForm";
 
 export default function IndentsPage() {
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedIndent, setSelectedIndent] = useState<IndentType | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [page, setPage] = useState(1);
@@ -26,7 +24,8 @@ export default function IndentsPage() {
   const { refetch } = useIndents({ page: page, limit: rowsPerPage, search: debouncedSearch });
   const indentState = useSelector((state: RootState) => state.manufacturing.indentResponse);
   const indentData = indentState?.data;
-  const indent = indentState?.data?.indents || [];
+  const indent: any = indentData || [];
+
   const roleId = getRoleIdFromAuth();
 
   useEffect(() => {
@@ -34,7 +33,7 @@ export default function IndentsPage() {
   }, [page, refetch]);
 
   // Transform data for table
-  const transformedIndent = indent ? indent : [];
+  const transformedIndent: any[] = indent || [];
 
   // Action handlers
   const handleView = (rowData: any) => {
@@ -44,9 +43,25 @@ export default function IndentsPage() {
 
   const indentColumns = [
     { key: "indent_no", header: "Indent No", sortable: true },
-    { key: "batch_no", header: "Batch No", sortable: true },
-    { key: "required_by", header: "Required By", sortable: true, render: (value: any) => new Date(value).toLocaleDateString() },
-    { key: "priority", header: "Priority", sortable: true },
+    { key: "indent_date", header: "Indent Date", sortable: true, render: (value: any) => new Date(value).toLocaleDateString() },
+    { key: "quantity", header: "Quantity", sortable: true },
+    { key: "unit_name", header: "Unit", sortable: true },
+    {
+      key: "items", header: "Items", sortable: true,
+      render: (row: any) => {
+        return (
+          <div className="space-y-1">
+            {row?.map((it: any, idx: any) => (
+              <div key={idx} className="text-sm">
+                {it.raw_material_name} ({it.article_name}) — {it.weight}{it.unit} × ₹{it.rate} = ₹{(Number(it?.value) || 0).toFixed(2)}
+              </div>
+            ))}
+          </div>
+        )
+      },
+    },
+    { key: "per_unit_cost", header: "Per Unit Cost", sortable: true, render: (value: any) => (Number(value) || 0)?.toFixed(2).toLocaleString() },
+    { key: "requested_by_name", header: "Requested By", sortable: true, },
     {
       key: "status",
       header: "Status",
@@ -57,8 +72,7 @@ export default function IndentsPage() {
         )
       }
     },
-    { key: "requested_by_name", header: "Requested By", sortable: true, },
-    { key: "created_at", header: "Date", sortable: true, render: (value: any) => new Date(value).toLocaleDateString() },
+    { key: "total_value", header: "Total Value", sortable: true, render: (value: any) => (Number(value) || 0)?.toFixed(2).toLocaleString() },
     {
       key: "actions",
       header: "Actions",
@@ -75,7 +89,7 @@ export default function IndentsPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => { setIsCreateDialogOpen(true), setSelectedIndent(row) }}
+            onClick={() => { setSelectedIndent(row) }}
             data-testid={`button-edit-${row.originalId}`}
             title="Update Status"
             disabled={roleId !== 1}
@@ -95,7 +109,9 @@ export default function IndentsPage() {
           <p className="text-muted-foreground">Manage material requisition requests</p>
         </div>
 
-        <Dialog
+        <IndentFormDialog />
+
+        {/* <Dialog
           open={isCreateDialogOpen}
           onOpenChange={(open) => {
             setIsCreateDialogOpen(open);
@@ -116,7 +132,7 @@ export default function IndentsPage() {
             </DialogHeader>
             <IndentForm setIsCreateDialogOpen={setIsCreateDialogOpen} selectedIndent={selectedIndent || undefined} />
           </DialogContent>
-        </Dialog>
+        </Dialog> */}
       </div>
 
       <DataTable
