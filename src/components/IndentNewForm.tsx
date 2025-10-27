@@ -44,9 +44,9 @@ import { useDebounce } from "@/hooks/useDebounce";
 
 const itemSchema = z.object({
     material: z.string().refine((val) => val.trim() !== "", "Material is required"),
-    article_name: z.string().refine((val) => val.trim() !== "", "Article name is required"),
+    // article_name: z.string().refine((val) => val.trim() !== "", "Article name is required"),
     weight: z.number().refine((val) => val > 0, "Weight must be greater than 0"),
-    uom: z.string().refine((val) => val.trim() !== "", "UOM is required"),
+    // uom: z.string().refine((val) => val.trim() !== "", "UOM is required"),
     rate: z.number().refine((val) => val > 0, "Rate must be greater than 0"),
     value: z.number().refine((val) => val > 0, "Value must be greater than 0"),
 });
@@ -54,7 +54,8 @@ const itemSchema = z.object({
 const formSchema = z.object({
     indent_no: z.string().refine((val) => val.trim() !== "", "Indent No is required"),
     unit_name: z.string().refine((val) => val.trim() !== "", "Unit Name is required"),
-    qty: z.number().min(1),
+    unit_master_id: z.string().refine((val) => val.trim() !== "", "Unit Master ID is required"),
+    quantity: z.number().min(1),
     date: z.string().min(1),
     items: z.array(itemSchema),
     skilled: z.object({
@@ -91,10 +92,12 @@ export default function IndentFormDialog() {
         defaultValues: {
             indent_no: "",
             unit_name: "",
-            qty: 1,
+            unit_master_id: "",
+            quantity: 1,
             date: new Date().toISOString().split("T")[0],
             items: [
-                { material: "", article_name: "", weight: 0, uom: "", rate: 0, value: 0 },
+                // { material: "", article_name: "", weight: 0, uom: "", rate: 0, value: 0 },
+                { material: "", weight: 0, rate: 0, value: 0 },
             ],
             skilled: { persons: 0, rate: 0, value: 0 },
             semiskilled: { persons: 0, rate: 0, value: 0 },
@@ -105,13 +108,14 @@ export default function IndentFormDialog() {
             remarks: "",
             status: "draft",
         },
-    });
+    });            
 
     const { fields, append, remove } = useFieldArray({
         control,
         name: "items",
     });
 
+     const [open, setOpen] = useState(false);
     const createIndent = useCreateNewIndent();
     const { data: rawMaterials } = useRawMaterials({});
     const rawMaterialsData = rawMaterials?.data || [];
@@ -144,7 +148,7 @@ export default function IndentFormDialog() {
     const profitPercent = useWatch({ control, name: "profitPercent" });
     const wearTearPercent = useWatch({ control, name: "wearTearPercent" });
     const gstPercent = useWatch({ control, name: "gstPercent" });
-    const qty = useWatch({ control, name: "qty" });
+    const qty = useWatch({ control, name: "quantity" });
 
     // Derived calculations
     const totalMaterialValue = items?.reduce((acc, cur) => acc + (cur.value || 0), 0);
@@ -168,14 +172,16 @@ export default function IndentFormDialog() {
             indent_date: data.date,
             status: data.status,
             remarks: data.remarks,
+            unit_master_id: data.unit_master_id,
+            quantity: data.quantity,
 
             items: data.items.map((item) => {
                 const matched = rawMaterialsData.find((m) => m.name === item.material);
                 return {
                     raw_material_id: matched?.id || null,
-                    article_name: item.article_name,
+                    // article_name: item.article_name,
                     weight: item.weight,
-                    unit: item.uom,
+                    // unit: item.uom,
                     rate: item.rate,
                     value: item.value,
                 };
@@ -193,12 +199,12 @@ export default function IndentFormDialog() {
         };
 
         createIndent.mutate(payload, {
-            onSuccess: () => reset(),
+            onSuccess: () => {reset(), setOpen(false);},
         });
     };
 
     return (
-        <Dialog>
+        <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button>Add Indent</Button>
             </DialogTrigger>
@@ -242,6 +248,7 @@ export default function IndentFormDialog() {
                                                         key={unit.id}
                                                         className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
                                                         onClick={() => {
+                                                            setValue("unit_master_id", unit.id);                                                            
                                                             setSelectedUnit(unit);
                                                             field.onChange(unit.unit_name);
                                                             setUnitDropdownOpen(false); // <-- close dropdown after selection
@@ -252,6 +259,11 @@ export default function IndentFormDialog() {
                                                 ))}
                                             </ul>
                                         )}
+                                        {
+                                            units.length === 0 && watch("unit_name") && (
+                                                <p className="text-red-500">No units found</p>
+                                            )
+                                        }
                                     </div>
                                 )}
                             />
@@ -263,12 +275,12 @@ export default function IndentFormDialog() {
                             <Label>Quantity <span className="text-red-500">*</span></Label>
                             <Input
                                 type="number"
-                                {...register("qty", { valueAsNumber: true })}
+                                {...register("quantity", { valueAsNumber: true })}
                                 onFocus={(e) => e.target.value === "0" && e.target.select()}
                                 onWheel={(e) => e.currentTarget.blur()}
                             />
-                            {errors.qty && (
-                                <p className="text-red-500">{errors.qty.message}</p>
+                            {errors.quantity && (
+                                <p className="text-red-500">{errors.quantity.message}</p>
                             )}
                         </div>
                         <div className="flex-1 min-w-[200px]">
@@ -289,9 +301,9 @@ export default function IndentFormDialog() {
                                 onClick={() =>
                                     append({
                                         material: "",
-                                        article_name: "",
+                                        // article_name: "",
                                         weight: 0,
-                                        uom: "",
+                                        // uom: "",
                                         rate: 0,
                                         value: 0,
                                     })
@@ -306,7 +318,7 @@ export default function IndentFormDialog() {
                         {fields.map((field, index) => (
                             <div
                                 key={field.id}
-                                className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_0.5fr] items-center gap-3 border p-3 rounded-lg"
+                                className="grid grid-cols-[1fr_1fr_1fr_1fr_0.2fr] items-end gap-3 border p-3 rounded-lg"
                             >
                                 {/* Material */}
                                 <div>
@@ -348,7 +360,7 @@ export default function IndentFormDialog() {
                                                                         : "opacity-0"
                                                                 )}
                                                             />
-                                                            {mat.name}
+                                                            {mat.name} - {mat.code}
                                                         </CommandItem>
                                                     ))}
                                                 </CommandGroup>
@@ -361,13 +373,13 @@ export default function IndentFormDialog() {
                                     )}
                                 </div>
 
-                                <div>
+                                {/* <div>
                                     <Label>Article Name <span className="text-red-500">*</span></Label>
                                     <Input {...register(`items.${index}.article_name`)} />
                                     {errors.items?.[index]?.article_name && (
                                         <p className="text-red-500">{errors.items?.[index]?.article_name?.message}</p>
                                     )}
-                                </div>
+                                </div> */}
 
                                 <div>
                                     <Label>Weight <span className="text-red-500">*</span></Label>
@@ -389,7 +401,7 @@ export default function IndentFormDialog() {
                                     )}
                                 </div>
 
-                                <div>
+                                {/* <div>
                                     <Label>UOM <span className="text-red-500">*</span></Label>
                                     <Select
                                         onValueChange={(val) => setValue(`items.${index}.uom`, val)}
@@ -407,7 +419,7 @@ export default function IndentFormDialog() {
                                     {errors.items?.[index]?.uom && (
                                         <p className="text-red-500">{errors.items?.[index]?.uom?.message}</p>
                                     )}
-                                </div>
+                                </div> */}
 
                                 <div>
                                     <Label>Rate (₹) <span className="text-red-500">*</span></Label>
@@ -481,6 +493,7 @@ export default function IndentFormDialog() {
                                     type="number"
                                     {...register("skilled.rate", { valueAsNumber: true })}
                                     onFocus={(e) => e.target.value === "0" && e.target.select()}
+                                    onWheel={(e)=>e.currentTarget.blur()}
                                     onChange={(e) => {
                                         const rate = parseFloat(e.target.value) || 0;
                                         const persons = watch("skilled.persons") || 0;
@@ -514,6 +527,7 @@ export default function IndentFormDialog() {
                                     type="number"
                                     {...register("semiskilled.rate", { valueAsNumber: true })}
                                     onFocus={(e) => e.target.value === "0" && e.target.select()}
+                                    onWheel={(e)=>e.currentTarget.blur()}
                                     onChange={(e) => {
                                         const rate = parseFloat(e.target.value) || 0;
                                         const persons = watch("semiskilled.persons") || 0;
@@ -609,7 +623,8 @@ export default function IndentFormDialog() {
                         </div>
                     </div>
 
-                    <div className="pt-4 flex justify-end">
+                    <div className="pt-4 flex justify-end gap-2">
+                        <Button variant="outline" onClick={() => {reset(), setOpen(false);}}>Cancel</Button>
                         <Button type="submit">Submit</Button>
                     </div>
                 </form>

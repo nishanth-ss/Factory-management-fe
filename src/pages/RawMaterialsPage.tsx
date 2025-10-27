@@ -67,16 +67,7 @@ const unitSchema = z.object({
   items: z
     .array(
       z.object({
-        raw_material_id: z.string().min(1, "Select a material"),
-        weight: z.preprocess(
-          (val) => Number(val),
-          z.number().min(0, "Weight must be positive")
-        ),
-        unit: z.string().min(1, "Select a unit"),
-        rate: z.preprocess(
-          (val) => Number(val),
-          z.number().min(0, "Rate must be positive")
-        ),
+        raw_material_id: z.string().min(1, "Select a material")
       })
     )
     .min(1, "At least one item is required"),
@@ -127,7 +118,7 @@ export default function RawMaterialsPage() {
   const [selectedUnit, setSelectedUnit] = useState<UnitFormValues | null>(null);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const rowsPerPage = 5;
+  const rowsPerPage = 10;
 
   const [unitPage, setUnitPage] = useState(1);
   const [unitSearch, setUnitSearch] = useState("");
@@ -147,6 +138,7 @@ export default function RawMaterialsPage() {
   const rawMaterialOptions = materials.map((m: any) => ({
     id: m.id,
     name: m.name,
+    code: m.code,
   }));
 
   const { refetch } = useRawMaterials({
@@ -194,7 +186,7 @@ export default function RawMaterialsPage() {
       purpose: "",
       shop_name: "",
       product_name: "",
-      items: [{ raw_material_id: "", weight: 0, unit: "", rate: 0 }],
+      items: [{ raw_material_id: "" }],
     },
   });
 
@@ -232,7 +224,7 @@ export default function RawMaterialsPage() {
       purpose: "",
       shop_name: "",
       product_name: "",
-      items: [{ raw_material_id: "", weight: 0, unit: "", rate: 0 }],
+      items: [{ raw_material_id: ""}],
     });
     form.reset({
       code: "",
@@ -345,7 +337,8 @@ export default function RawMaterialsPage() {
         <div className="space-y-1">
           {items?.map((item, i) => (
             <div key={i} className="text-xs text-gray-700">
-              <strong>{item.raw_material_name}</strong> — {item.weight} {item.unit} @ {item.rate}
+              <strong>{item.raw_material_name}</strong>
+              {/* <strong>{item.raw_material_name}</strong> — {item.weight} {item.unit} @ {item.rate} */}
             </div>
           ))}
         </div>
@@ -673,7 +666,7 @@ export default function RawMaterialsPage() {
                         name="product_name"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Purpose <span className="text-red-500">*</span></FormLabel>
+                            <FormLabel>Product Name <span className="text-red-500">*</span></FormLabel>
                             <FormControl>
                               <Input placeholder="product name" {...field} />
                             </FormControl>
@@ -703,7 +696,7 @@ export default function RawMaterialsPage() {
                       {fields.map((item, index) => (
                         <div
                           key={item.id}
-                          className="grid grid-cols-[1.8fr_1fr_1fr_1fr_0.2fr] gap-3 items-end"
+                          className="grid grid-cols-[1fr_0.2fr] items-end gap-3"
                         >
                           <FormField
                             control={unitForm.control}
@@ -723,74 +716,11 @@ export default function RawMaterialsPage() {
                                   <SelectContent>
                                     {rawMaterialOptions.map((m) => (
                                       <SelectItem key={m.id} value={m.id}>
-                                        {m.name}
+                                        {m.name} - {m.code}
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
                                 </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={unitForm.control}
-                            name={`items.${index}.weight`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Weight</FormLabel>
-                                <FormControl>
-                                  <Input type="number"
-                                    step="0.01"
-                                    {...field}
-                                    onWheel={(e) => e.currentTarget.blur()}
-                                    onFocus={(e) => e.target.value === "0" && e.target.select()}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={unitForm.control}
-                            name={`items.${index}.unit`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>UOM</FormLabel>
-                                <Select
-                                  onValueChange={field.onChange}
-                                  value={field.value}
-                                >
-                                  <FormControl>
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Select Unit" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent className="max-h-52 overflow-y-auto">
-                                    {unitOptions.map((u) => (
-                                      <SelectItem key={u} value={u}>
-                                        {u}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={unitForm.control}
-                            name={`items.${index}.rate`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Rate</FormLabel>
-                                <FormControl>
-                                  <Input type="number"
-                                    step="0.01"
-                                    {...field}
-                                    onWheel={(e) => e.currentTarget.blur()}
-                                    onFocus={(e) => e.target.value === "0" && e.target.select()}
-                                  />
-                                </FormControl>
                                 <FormMessage />
                               </FormItem>
                             )}
@@ -798,7 +728,7 @@ export default function RawMaterialsPage() {
                           <Button
                             type="button"
                             variant="outline"
-                            className="border border-red-500"
+                            className="border border-red-500 mb-2"
                             size="sm"
                             onClick={() => remove(index)}
                           >
@@ -813,9 +743,6 @@ export default function RawMaterialsPage() {
                         onClick={() =>
                           append({
                             raw_material_id: "",
-                            weight: 0,
-                            unit: "",
-                            rate: 0,
                           })
                         }
                       >
@@ -923,10 +850,10 @@ export default function RawMaterialsPage() {
                       <tr>
                         <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Material Code</th>
                         <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Material Name</th>
-                        <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Weight</th>
-                        <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Unit</th>
-                        <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Rate</th>
-                        <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Value</th>
+                          {/* <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Weight</th>
+                          <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Unit</th>
+                          <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Rate</th>
+                          <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Value</th> */}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
@@ -934,10 +861,10 @@ export default function RawMaterialsPage() {
                         <tr key={item.id}>
                           <td className="px-4 py-2 text-sm text-gray-800">{item.code}</td>
                           <td className="px-4 py-2 text-sm text-gray-800">{item.raw_material_name}</td>
-                          <td className="px-4 py-2 text-sm text-gray-800">{item.weight}</td>
+                          {/* <td className="px-4 py-2 text-sm text-gray-800">{item.weight}</td>
                           <td className="px-4 py-2 text-sm text-gray-800">{item.unit}</td>
                           <td className="px-4 py-2 text-sm text-gray-800">{item.rate}</td>
-                          <td className="px-4 py-2 text-sm text-gray-800">{item.value}</td>
+                          <td className="px-4 py-2 text-sm text-gray-800">{item.value}</td> */}
                         </tr>
                       ))}
                     </tbody>

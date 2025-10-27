@@ -294,7 +294,7 @@ export default function PurchaseOrdersPage() {
                         name="purchaseOrder.expected_delivery"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Expected Delivery</FormLabel>
+                            <FormLabel>Date</FormLabel>
                             <FormControl>
                               <Input
                                 type="date"
