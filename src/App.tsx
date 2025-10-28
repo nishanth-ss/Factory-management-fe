@@ -23,6 +23,7 @@ import UsersPage from "@/pages/UsersPage";
 import NotAuthorized from "@/pages/NotAuthorized";
 import ProductPage from "./pages/ProductPage.tsx";
 import BatchPage from "./pages/BatchPage";
+import MaterialsHistory from "./components/MaterialsHistory.tsx";
 
 function Router() {
   return (
@@ -31,6 +32,7 @@ function Router() {
       <Route path="/" component={DashboardPage} />
       <Route path="/indents" component={IndentsPage} />
       <Route path="/materials" component={RawMaterialsPage} />
+      <Route path="/materials/:id" component={MaterialsHistory} />
       <Route path="/product" component={ProductPage} />
       <Route path="/batches" component={BatchPage} />
       <Route path="/purchase-orders" component={PurchaseOrdersPage} />

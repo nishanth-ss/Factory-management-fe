@@ -68,3 +68,15 @@ export const useUpdateRawMaterial = () => {
     },
   });
 };
+
+export const useRawMaterialHistory = (id: string) => {
+
+  const { data, error, ...rest } = useQuery({
+    queryKey: ['rawMaterialHistory', id],
+    queryFn: () => 
+      apiRequest<any>("GET", `/logs/raw-materials?raw_material_id=${id}`)
+  });
+
+  return { data, error, ...rest };
+};
+
