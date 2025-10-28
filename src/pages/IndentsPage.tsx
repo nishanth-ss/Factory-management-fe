@@ -4,13 +4,14 @@ import DataTable from "@/components/DataTable";
 import StatusBadge from "@/components/StatusBadge";
 import { Eye, Edit } from "lucide-react";
 import type { IndentStatus, IndentType } from "@/types/indent";
-import { useIndents } from "@/hooks/useIndent";
+import { useIndents, useUpdateIndent } from "@/hooks/useIndent";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/store/store";
 import { getRoleIdFromAuth } from "@/lib/utils";
 import { ViewDialog } from "@/components/common/ViewDialogBox";
 import IndentFormDialog from "@/components/IndentNewForm";
+import StatusDialog from "@/components/common/StatusDialogBox";
 
 export default function IndentsPage() {
   const [selectedIndent, setSelectedIndent] = useState<IndentType | null>(null);
@@ -19,6 +20,10 @@ export default function IndentsPage() {
   const rowsPerPage = 5;
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 350);
+
+  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
+  const updateIndent = useUpdateIndent();
+
 
   // Fetch indents data (debounced by search)
   const { refetch } = useIndents({ page: page, limit: rowsPerPage, search: debouncedSearch });
@@ -89,7 +94,7 @@ export default function IndentsPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => { setSelectedIndent(row) }}
+            onClick={() => { setSelectedIndent(row), setIsStatusDialogOpen(true) }}
             data-testid={`button-edit-${row.originalId}`}
             title="Update Status"
             disabled={roleId !== 1}
@@ -174,6 +179,35 @@ export default function IndentsPage() {
             </div>
           </div>
         }
+      />
+
+      <StatusDialog
+        open={isStatusDialogOpen}
+        onOpenChange={setIsStatusDialogOpen}
+        title="Update Status"
+        value={selectedIndent?.status || ""}
+        setValue={(value: string) => {
+          if (selectedIndent) {
+            setSelectedIndent({
+              ...selectedIndent,
+              status: value as IndentStatus || "draft"
+            });
+          }
+        }}
+        submitLabel="Update"
+        cancelLabel="Cancel"
+        onSubmit={() => {
+          updateIndent.mutate({
+            id: selectedIndent?.id || "",
+            status: selectedIndent?.status || "draft",
+          }, {
+            onSuccess: () => {
+              setIsStatusDialogOpen(false);
+              setSelectedIndent(null);
+            },
+          });
+        }}
+        onCancel={() => { setIsStatusDialogOpen(false), setSelectedIndent(null) }}
       />
     </div>
   );

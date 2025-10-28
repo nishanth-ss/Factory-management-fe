@@ -85,14 +85,21 @@ export const useGetIndentById = (id: string) => {
 export const useUpdateIndent = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
   return useMutation({
-    mutationFn: (data: { id: string; data: IndentType }) => apiRequest<IndentsApiResponse>("PUT", `/indent/${data.id}`, data.data),
+    // ✅ Accept a single object argument and destructure it
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      return apiRequest<IndentsApiResponse>("PUT", `/indent/${id}`, { status });
+    },
+
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["indents"] });
-      toast(res?.message, { variant: "success" });
+      toast(res?.message || "Indent updated successfully", { variant: "success" });
     },
-    onError: (error) => {
-      toast(error?.message, { variant: "error" });
+
+    onError: (error: Error) => {
+      toast(error.message || "Failed to update indent", { variant: "error" });
     },
   });
 };
+

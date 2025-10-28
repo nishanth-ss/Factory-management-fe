@@ -21,14 +21,14 @@ const MaterialsHistory = () => {
         { header: "Description", key: "description" },
         { header: "Quantity Issued (kg)", key: "quantity_issued_kg" },
         { header: "Balance (kg)", key: "balance_kg" },
-        { header: "Indent #", key: "indent_number" },
+        { header: "Indent", key: "indent_number" },
         { header: "Remarks", key: "remarks" },
     ];
 
     return (
         <div>
             <div className="flex items-center gap-2">
-                <ArrowLeft className="h-5 w-5" onClick={() => navigate("/materials")} />
+                <ArrowLeft className="h-5 w-5 cursor-pointer" onClick={() => navigate("/materials")} />
                 <h1>Materials History</h1>
             </div>
 
@@ -36,7 +36,7 @@ const MaterialsHistory = () => {
                 title="Raw Material History"
                 columns={historyColumns}
                 data={rawMaterialData}
-                searchable
+                searchable={false}
                 exportable
                 pagination
                 rowsPerPage={rowsPerPage}
