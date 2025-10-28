@@ -63,6 +63,7 @@ const StatusDialog: React.FC<DynamicDialogProps> = ({
                                         {status.label}
                                     </SelectItem>
                                 )) : <>
+                                    <SelectItem value="draft">Draft</SelectItem>
                                     <SelectItem value="pending">Pending</SelectItem>
                                     <SelectItem value="approved">Approved</SelectItem>
                                     <SelectItem value="rejected">Rejected</SelectItem>
