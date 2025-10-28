@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Eye, Edit, Trash2 } from "lucide-react";
+import { Plus, Eye, Edit, Trash2, History } from "lucide-react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -39,6 +39,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/store/store";
 import { useCreateUnit, useUnits, useUpdateUnit } from "@/hooks/useUnit";
+import { navigate } from "wouter/use-browser-location";
 
 // ===============================
 // 🔹 Validation Schemas
@@ -293,6 +294,23 @@ export default function RawMaterialsPage() {
       sortable: true,
       render: (level: string, row: any) =>
         `${parseFloat(level || "0")} ${row.uom}`,
+    },
+    {
+      key: "history",
+      header: "History",
+      render: (_value: any, row: any) => (
+        <div className="flex gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              navigate(`/materials/${row.id}`);
+            }}
+          >
+            <History className="h-3 w-3" />
+          </Button>
+        </div>
+      ),
     },
     {
       key: "actions",
