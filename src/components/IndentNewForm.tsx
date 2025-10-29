@@ -117,10 +117,10 @@ export default function IndentFormDialog() {
 
      const [open, setOpen] = useState(false);
     const createIndent = useCreateNewIndent();
-    const { data: rawMaterials } = useRawMaterials({});
-    const rawMaterialsData = rawMaterials?.data || [];
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedUnit, setSelectedUnit] = useState<any>(null);
+    const { data: rawMaterials } = useRawMaterials({unit_id: selectedUnit?.id});
+    const rawMaterialsData = rawMaterials?.data || [];
     const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
     const debouncedSearchTerm = useDebounce(searchTerm, 300);
     const { data: unitData, refetch } = useUnits(
@@ -238,7 +238,7 @@ export default function IndentFormDialog() {
                                             onChange={(e) => {
                                                 field.onChange(e.target.value);
                                                 handleSearch(e.target.value);
-                                                setUnitDropdownOpen(true); // keep open while typing
+                                                setUnitDropdownOpen(true); 
                                             }}
                                         />
                                         {unitDropdownOpen && units.length > 0 && (
@@ -260,7 +260,7 @@ export default function IndentFormDialog() {
                                             </ul>
                                         )}
                                         {
-                                            units.length === 0 && watch("unit_name") && (
+                                            units.length === 0 && watch("unit_name") && debouncedSearchTerm !== "" && (
                                                 <p className="text-red-500">No units found</p>
                                             )
                                         }

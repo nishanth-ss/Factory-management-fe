@@ -24,6 +24,7 @@ interface DataTableProps {
   onPageChange?: (page: number) => void;
   search?: string;
   onSearch?: (term: string) => void;
+  extraComp?: React.ReactNode;
 }
 
 export default function DataTable({
@@ -39,6 +40,7 @@ export default function DataTable({
   onPageChange,
   search,
   onSearch,
+  extraComp,
 }: DataTableProps) {
   const totalPages = Math.ceil(totalRecords / rowsPerPage);
 
@@ -47,7 +49,10 @@ export default function DataTable({
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>{title}</CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">  
+            {
+              extraComp && extraComp
+            }
             {searchable && (
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />

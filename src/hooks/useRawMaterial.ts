@@ -6,18 +6,19 @@ import { useDispatch } from "react-redux";
 import { setRawMaterialResponse } from "@/store/manufacturingCollection";
 import { useEffect } from "react";
 
-export function useRawMaterials(params: { page?: number; limit?: number | string; search?: string }) {
+export function useRawMaterials(params: { page?: number; limit?: number | string; search?: string; unit_id?: string }) {
   const dispatch = useDispatch();
 
   const page = params.page ?? 1;
   const limit = params.limit ?? 10;
   const search = params.search ?? "";
+  const unit_id = params.unit_id ?? "";
 
   const query = useQuery<RawMaterialsApiResponse, Error>({
-    queryKey: ["raw-materials", page, limit, search],
+    queryKey: ["raw-materials", page, limit, search, unit_id],
     queryFn: async () => {
-      const res = await apiRequest<RawMaterialsApiResponse>("GET", "/raw-material", undefined, {
-        params: { page, limit, search },
+      const res = await apiRequest<RawMaterialsApiResponse>("GET", "/raw-materials", undefined, {
+        params: { page, limit, search, unit_id },
       });
       return res; // return full API response
     },

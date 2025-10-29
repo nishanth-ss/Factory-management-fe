@@ -38,7 +38,7 @@ const navigationItems = [
   { title: "Product", url: "/product", icon: ShoppingBasket },
   // { title: "Batches", url: "/batches", icon: ShieldMinus },
   { title: "Indents", url: "/indents", icon: FileText },
-  { title: "Purchase Orders", url: "/purchase-orders", icon: ShoppingCart },
+  { title: "RM Purchase Orders", url: "/purchase-orders", icon: ShoppingCart },
   { title: "GRN", url: "/grn", icon: Truck },
   { title: "Production", url: "/production", icon: Factory },
   { title: "Expenditure", url: "/expenditure", icon: IndianRupee },
