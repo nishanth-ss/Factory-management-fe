@@ -124,6 +124,7 @@ export default function RawMaterialsPage() {
   const [unitPage, setUnitPage] = useState(1);
   const [unitSearch, setUnitSearch] = useState("");
   const unitRowsPerPage = 5;
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
 
   const debouncedSearch = useDebounce(search, 350);
   const createMutation = useCreateRawMaterial();
@@ -134,7 +135,6 @@ export default function RawMaterialsPage() {
   const { rawMaterialResponse } = useSelector(
     (state: RootState) => state.manufacturing
   );
-
   const materials = rawMaterialResponse?.data || [];
   const rawMaterialOptions = materials.map((m: any) => ({
     id: m.id,
@@ -146,6 +146,7 @@ export default function RawMaterialsPage() {
     page,
     limit: rowsPerPage,
     search: debouncedSearch,
+    unit_id: selectedUnitId || "",
   });
 
   const { refetch: refetchUnit, data: unit } = useUnits({
@@ -225,7 +226,7 @@ export default function RawMaterialsPage() {
       purpose: "",
       shop_name: "",
       product_name: "",
-      items: [{ raw_material_id: ""}],
+      items: [{ raw_material_id: "" }],
     });
     form.reset({
       code: "",
@@ -868,7 +869,7 @@ export default function RawMaterialsPage() {
                       <tr>
                         <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Material Code</th>
                         <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Material Name</th>
-                          {/* <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Weight</th>
+                        {/* <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Weight</th>
                           <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Unit</th>
                           <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Rate</th>
                           <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Value</th> */}
@@ -907,6 +908,17 @@ export default function RawMaterialsPage() {
         currentPage={page}
         onPageChange={(newPage) => setPage(newPage)}
         search={search}
+        extraComp={
+        <select
+          className="border rounded-md px-2 py-1 text-sm min-w-[150px]"
+          value={selectedUnitId || ""}
+          onChange={(e) => setSelectedUnitId(e.target.value)}
+        >
+          <option value="">Select Unit</option>
+          {unitData?.map((unit: any) => (
+            <option key={unit.id} value={unit.id}>{unit.unit_name}</option>
+          ))}
+        </select>}
         onSearch={(term) => {
           setSearch(term);
           setPage(1);

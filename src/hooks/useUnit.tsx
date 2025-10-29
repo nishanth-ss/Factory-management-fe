@@ -3,14 +3,14 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "./useNoistackToast";
 import type { UnitCreatePayload, UnitCreateResponse, UnitType } from "@/types/unit";
 // ✅ Fetch Units List
-export function useUnits(params: { page?: number; limit?: number; search?: string }, options?: any) {
-  const { page = 1, limit = 10, search = "" } = params;
+export function useUnits(params: { page?: number; limit?: number; search?: string; unit_id?: string }, options?: any) {
+  const { page = 1, limit = 10, search = "", unit_id = "" } = params;
 
   return useQuery<any, Error>({
-    queryKey: ["units", page, limit, search],
+    queryKey: ["units", page, limit, search, unit_id],
     queryFn: async () => {
       const res = await apiRequest<any>("GET", "/unit", undefined, {
-        params: { page, limit, search },
+        params: { page, limit, search, unit_id },
       });
       return res;
     },
