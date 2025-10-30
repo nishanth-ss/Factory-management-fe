@@ -29,7 +29,7 @@ async function handleAxiosError(error: unknown): Promise<never> {
     const status = error.response?.status;
     if (status === 401 || status === 403) {
       // Optionally redirect to login
-      window.location.href = "/login";
+      // window.location.href = "/login";
       throw new Error("Unauthorized");
     }
     // Prefer server-provided message when available

@@ -17,7 +17,7 @@ export function useRawMaterials(params: { page?: number; limit?: number | string
   const query = useQuery<RawMaterialsApiResponse, Error>({
     queryKey: ["raw-materials", page, limit, search, unit_id],
     queryFn: async () => {
-      const res = await apiRequest<RawMaterialsApiResponse>("GET", "/raw-materials", undefined, {
+      const res = await apiRequest<RawMaterialsApiResponse>("GET", `${unit_id ? `/unit/raw-materials` : "/raw-material"}`, undefined, {
         params: { page, limit, search, unit_id },
       });
       return res; // return full API response
