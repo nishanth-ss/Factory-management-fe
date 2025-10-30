@@ -108,33 +108,33 @@ export default function IndentFormDialog() {
             remarks: "",
             status: "draft",
         },
-    });            
+    });
 
     const { fields, append, remove } = useFieldArray({
         control,
         name: "items",
     });
 
-     const [open, setOpen] = useState(false);
+    const [open, setOpen] = useState(false);
     const createIndent = useCreateNewIndent();
     const [searchTerm, setSearchTerm] = useState("");
-    const [selectedUnit, setSelectedUnit] = useState<any>(null);
-    const { data: rawMaterials } = useRawMaterials({unit_id: selectedUnit?.id});
+    const [selectedUnitId, setSelectedUnitId] = useState<string | undefined>(undefined);
+    const { data: rawMaterials } = useRawMaterials({ page: 1, limit: 30, unit_id: selectedUnitId });
     const rawMaterialsData = rawMaterials?.data || [];
-    const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
     const debouncedSearchTerm = useDebounce(searchTerm, 300);
-    const { data: unitData, refetch } = useUnits(
-        { page: 1, limit: 10, search: debouncedSearchTerm },
-        { enabled: false }// only fetch when searchTerm exists
-    );
-    const units = unitData?.data?.data || [];
+    const { refetch: refetchUnit, data: unit } = useUnits({
+        page: 1,
+        limit: 30,
+        search: debouncedSearchTerm,
+    });
+    const unitData = unit?.data?.data || [];
     const [openIndex, setOpenIndex] = useState<number | null>(null);
 
     useEffect(() => {
         if (debouncedSearchTerm) {
-            refetch();
+            refetchUnit();
         }
-    }, [debouncedSearchTerm, refetch]);
+    }, [debouncedSearchTerm, refetchUnit]);
 
 
     // Input handler
@@ -199,7 +199,7 @@ export default function IndentFormDialog() {
         };
 
         createIndent.mutate(payload, {
-            onSuccess: () => {reset(), setOpen(false);},
+            onSuccess: () => { reset(), setOpen(false); },
         });
     };
 
@@ -225,8 +225,9 @@ export default function IndentFormDialog() {
                             )}
                         </div>
                         <div className="flex-1 min-w-[200px]">
-                            <Label>Unit Name <span className="text-red-500">*</span></Label>
-                            <Controller
+                            <div className="flex flex-col gap-2">
+                                <Label>Unit Name <span className="text-red-500">*</span></Label>
+                                {/* <Controller
                                 name="unit_name"
                                 control={control}
                                 render={({ field }) => (
@@ -266,10 +267,21 @@ export default function IndentFormDialog() {
                                         }
                                     </div>
                                 )}
-                            />
-                            {errors.unit_name && (
-                                <p className="text-red-500">{errors.unit_name.message}</p>
-                            )}
+                            /> */}
+                                <select
+                                    className="border rounded-md px-2 py-1 text-sm min-w-[150px] h-[35px]"
+                                    value={selectedUnitId || ""}
+                                    onChange={(e) => setSelectedUnitId(e.target.value)}
+                                >
+                                    <option value="">Select Unit</option>
+                                    {unitData?.map((unit: any) => (
+                                        <option key={unit.id} value={unit.id}>{unit.unit_name}</option>
+                                    ))}
+                                </select>
+                                {errors.unit_name && (
+                                    <p className="text-red-500">{errors.unit_name.message}</p>
+                                )}
+                            </div>
                         </div>
                         <div className="flex-1 min-w-[200px]">
                             <Label>Quantity <span className="text-red-500">*</span></Label>
@@ -493,7 +505,7 @@ export default function IndentFormDialog() {
                                     type="number"
                                     {...register("skilled.rate", { valueAsNumber: true })}
                                     onFocus={(e) => e.target.value === "0" && e.target.select()}
-                                    onWheel={(e)=>e.currentTarget.blur()}
+                                    onWheel={(e) => e.currentTarget.blur()}
                                     onChange={(e) => {
                                         const rate = parseFloat(e.target.value) || 0;
                                         const persons = watch("skilled.persons") || 0;
@@ -527,7 +539,7 @@ export default function IndentFormDialog() {
                                     type="number"
                                     {...register("semiskilled.rate", { valueAsNumber: true })}
                                     onFocus={(e) => e.target.value === "0" && e.target.select()}
-                                    onWheel={(e)=>e.currentTarget.blur()}
+                                    onWheel={(e) => e.currentTarget.blur()}
                                     onChange={(e) => {
                                         const rate = parseFloat(e.target.value) || 0;
                                         const persons = watch("semiskilled.persons") || 0;
@@ -624,7 +636,7 @@ export default function IndentFormDialog() {
                     </div>
 
                     <div className="pt-4 flex justify-end gap-2">
-                        <Button variant="outline" onClick={() => {reset(), setOpen(false);}}>Cancel</Button>
+                        <Button variant="outline" onClick={() => { reset(), setOpen(false); }}>Cancel</Button>
                         <Button type="submit">Submit</Button>
                     </div>
                 </form>
