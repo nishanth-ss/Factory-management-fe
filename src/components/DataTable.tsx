@@ -43,7 +43,7 @@ export default function DataTable({
   extraComp,
 }: DataTableProps) {
   const totalPages = Math.ceil(totalRecords / rowsPerPage);
-
+console.log(data)
   return (
     <Card>
       <CardHeader>
@@ -88,7 +88,7 @@ export default function DataTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.map((row, index) => (
+            {data.length > 0 ? data.map((row, index) => (
               <TableRow key={index}>
                 {columns.map((column) => (
                   <TableCell key={column.key}>
@@ -98,7 +98,13 @@ export default function DataTable({
                   </TableCell>
                 ))}
               </TableRow>
-            ))}
+            )) : (
+              <TableRow>
+                <TableCell colSpan={columns.length} className="h-24 text-center">
+                  No data found.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
 
