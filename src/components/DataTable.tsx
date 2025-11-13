@@ -43,7 +43,6 @@ export default function DataTable({
   extraComp,
 }: DataTableProps) {
   const totalPages = Math.ceil(totalRecords / rowsPerPage);
-console.log(data)
   return (
     <Card>
       <CardHeader>

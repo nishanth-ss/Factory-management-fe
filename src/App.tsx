@@ -24,6 +24,8 @@ import NotAuthorized from "@/pages/NotAuthorized";
 import ProductPage from "./pages/ProductPage.tsx";
 import BatchPage from "./pages/BatchPage";
 import MaterialsHistory from "./components/MaterialsHistory.tsx";
+import ManufacturingArticles from "./pages/ManufacturingArticles.tsx";
+import TransistRegister from "./pages/TransistRegister.tsx";
 
 function Router() {
   return (
@@ -36,6 +38,8 @@ function Router() {
       <Route path="/product" component={ProductPage} />
       <Route path="/batches" component={BatchPage} />
       <Route path="/purchase-orders" component={PurchaseOrdersPage} />
+      <Route path="/manufacturing-articles" component={ManufacturingArticles} />
+      <Route path="/transist-register" component={TransistRegister} />
       <Route path="/grn" component={GRNPage} />
       <Route path="/production" component={ProductionPage} />
       <Route path="/expenditure" component={ExpenditurePage} />
