@@ -1,5 +1,4 @@
 import DataTable from "@/components/DataTable";
-import ManufactureArticleDialog from "@/components/ManufactureArticleDialog";
 import { useState } from "react";
 import { useTransitRegisters } from "@/hooks/useTransistRegister";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -7,6 +6,7 @@ import FormattedDate from "@/lib/formatDate";
 import { Eye, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import TransistDialogbox from "@/components/TransistDialogbox";
 
 const TransistRegister = () => {
     const [open, setOpen] = useState(false);
@@ -23,8 +23,12 @@ const TransistRegister = () => {
     const totalRecords = data?.data?.pagination?.total_records || 0;
 
     const columns = [
+        { key : "production_name", header: "Production Name", sortable: true },
         { key: "article_name", header: "Article Name", sortable: true },
+        { key: "quantity", header: "Quantity", sortable: true },
+        { key: "unit", header: "Unit", sortable: true },
         { key: "remarks", header: "Remarks", sortable: true },
+        { key : "transit_date", header: "Transit Date", sortable: true, render: (date: string) => <FormattedDate date={date} formatString="dd/MM/yyyy"  /> },
         { key: "created_at", header: "Created Date", sortable: true, render: (date: string) => <FormattedDate date={date} /> },
         {
             key: "actions", header: "Actions", render: (_value: any, row: any) => (
@@ -72,10 +76,10 @@ const TransistRegister = () => {
                     <h1 className="text-3xl font-bold">Transit Register</h1>
                     <p className="text-muted-foreground">Manage transit register</p>
                 </div>
-                <ManufactureArticleDialog open={open} setOpen={setOpen} editId={selectedArticle?.id} setSelectedArticle={setSelectedArticle}  />
+                <TransistDialogbox open={open} setOpen={setOpen} editId={selectedArticle?.id} setSelectedArticle={setSelectedArticle}  />
             </div>
 
-            {/* <DataTable
+            <DataTable
                 title="Transit Register"
                 columns={columns}
                 data={articles}
@@ -92,7 +96,7 @@ const TransistRegister = () => {
                 onSearch={(term) => {
                     setSearch(term);
                 }}
-            /> */}
+            />
 
             {/* View Dialog */}
             <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>

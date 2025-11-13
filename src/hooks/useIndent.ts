@@ -13,11 +13,11 @@ export const useIndents = (params?: { page?: number; limit?: number; search?: st
   const limit = params?.limit ?? 10;
   const search = params?.search ?? "";
 
-  const query = useQuery<IndentsApiResponse>({
+  const query = useQuery<any>({
     queryKey: ["indents", page, limit, search],
     queryFn: async () => {
       const qs = new URLSearchParams({ page: String(page), limit: String(limit), search }).toString();
-      const res = await apiRequest<IndentsApiResponse>("GET", `/indent?${qs}`);
+      const res = await apiRequest<any>("GET", `/indent?${qs}`);
       return res; // return the full API response, not just the array
     },
     refetchOnWindowFocus: false,

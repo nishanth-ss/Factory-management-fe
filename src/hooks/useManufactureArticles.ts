@@ -5,13 +5,15 @@ import type { ManufactureArticleCreatePayload, ManufactureArticleCreateResponse,
 
 
 // ✅ Fetch All Manufacture Articles
-export function useManufactureArticles(params: { page?: number; limit?: number | string; search?: string }) {
-
+export function useManufactureArticles(
+  params: { page?: number; limit?: number | string; search?: string },
+  options?: Omit<UseQueryOptions<any, Error>, "queryKey" | "queryFn">
+) {
   const page = params.page ?? 1;
   const limit = params.limit ?? 10;
   const search = params.search ?? "";
 
-  const query = useQuery<any, Error>({
+  return useQuery<any, Error>({
     queryKey: ["manufacture-articles", page, limit, search],
     queryFn: async () => {
       const res = await apiRequest<any>(
@@ -25,9 +27,9 @@ export function useManufactureArticles(params: { page?: number; limit?: number |
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     staleTime: 10_000,
+    placeholderData: (prev: any) => prev,
+    ...options, // ✅ Merge options from caller (like enabled)
   });
-
-  return query;
 }
 
 // ✅ Create Manufacture Article
