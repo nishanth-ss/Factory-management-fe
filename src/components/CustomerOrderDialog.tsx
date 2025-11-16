@@ -1,5 +1,3 @@
-"use client";
-
 import {
     Dialog,
     DialogContent,
@@ -19,8 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useForm } from "react-hook-form";
-import { useCreateCustomerOrder, useUpdateCustomerOrder, useGetCustomerOrderById } from "@/hooks/useCustomerOrders";
-import { useCallback, useEffect, useState } from "react";
+import { useCreateCustomerOrder, useUpdateCustomerOrder } from "@/hooks/useCustomerOrders";
+import { useEffect, useState } from "react";
 import {
     Command,
     CommandEmpty,
@@ -61,7 +59,7 @@ export default function CustomerOrderDialog({ open, setOpen, editId, selectedArt
 
     const createMutation = useCreateCustomerOrder();
     const updateMutation = useUpdateCustomerOrder();
-    const { data: singleOrder } = useGetCustomerOrderById(editId ?? "");
+    // const { data: singleOrder } = useGetCustomerOrderById(editId ?? "");
     const [maopen, setMaOpen] = useState(false);
     const [search, setSearch] = useState("");
     const debouncedSearch = useDebounce(search, 300);
@@ -285,7 +283,7 @@ export default function CustomerOrderDialog({ open, setOpen, editId, selectedArt
                                                                                     }`}
                                                                             />
                                                                             <div className="flex-1">
-                                                                                <p className="font-medium">{article.article_name}</p>
+                                                                                <p className="font-medium">{article.article_name}<span className="text-xs text-muted-foreground">( remaining qty: {article.remaining_qty})</span></p>
                                                                                 {article.production_name && (
                                                                                     <p className="text-xs text-muted-foreground">
                                                                                         Production: {article.production_name}

@@ -21,12 +21,12 @@ import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/not-found";
 import UsersPage from "@/pages/UsersPage";
 import NotAuthorized from "@/pages/NotAuthorized";
-import ProductPage from "./pages/ProductPage.tsx";
+// import ProductPage from "./pages/ProductPage.tsx";
 import BatchPage from "./pages/BatchPage";
 import MaterialsHistory from "./components/MaterialsHistory.tsx";
 import ManufacturingArticles from "./pages/ManufacturingArticles.tsx";
 import TransistRegister from "./pages/TransistRegister.tsx";
-import CustomerOrder from "./pages/CustomerOrder";
+import CustomerOrder from "./pages/CustomerOrder.tsx";
 
 function Router() {
   return (
@@ -36,7 +36,7 @@ function Router() {
       <Route path="/indents" component={IndentsPage} />
       <Route path="/materials" component={RawMaterialsPage} />
       <Route path="/materials/:id" component={MaterialsHistory} />
-      <Route path="/product" component={ProductPage} />
+      {/* <Route path="/product" component={ProductPage} /> */}
       <Route path="/batches" component={BatchPage} />
       <Route path="/purchase-orders" component={PurchaseOrdersPage} />
       <Route path="/manufacturing-articles" component={ManufacturingArticles} />

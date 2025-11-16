@@ -8,14 +8,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useCustomerOrders, type CustomerOrder } from "@/hooks/useCustomerOrders";
 import CustomerOrderDialog from "@/components/CustomerOrderDialog";
 
-const CustomerOrder = () => {
+const CustomerOrderPage = () => {
     const [open, setOpen] = useState(false);
     const [selectedArticle, setSelectedArticle] = useState<CustomerOrder | undefined>(undefined);
     const [page, setPage] = useState(1);
     const rowsPerPage = 5;
     const [search, setSearch] = useState("");
     const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [viewingArticle, setViewingArticle] = useState<CustomerOrder | undefined>(undefined);
 
     const debouncedSearch = useDebounce(search, 350);
@@ -24,10 +23,8 @@ const CustomerOrder = () => {
     const totalRecords = data?.data?.pagination?.total_records || 0;
 
     const columns = [
-        { key: "transit_register_id" as const, header: "Transit Register ID", sortable: true },
-
+        // { key: "transit_register_id" as const, header: "Transit Register ID", sortable: true },
         { key: "so_no" as const, header: "SO Number", sortable: true },
-
         {
             key: "order_date" as const,
             header: "Order Date",
@@ -36,17 +33,12 @@ const CustomerOrder = () => {
                 <FormattedDate date={date} formatString="dd/MM/yyyy" />
             ),
         },
-
+        {key: "article_name" as const, header: "Article Name", sortable: true},
         { key: "customer_name" as const, header: "Customer Name", sortable: true },
-
         { key: "customer_address" as const, header: "Customer Address", sortable: false },
-
         { key: "ordered_qty" as const, header: "Ordered Qty", sortable: true },
-
         { key: "total_transferred_qty" as const, header: "Transferred Qty", sortable: true },
-
         { key: "rate" as const, header: "Rate", sortable: true },
-
         {
             key: "due_date" as const,
             header: "Due Date",
@@ -55,16 +47,13 @@ const CustomerOrder = () => {
                 <FormattedDate date={date} formatString="dd/MM/yyyy" />
             ),
         },
-
         { key: "status" as const, header: "Status", sortable: true },
-
         {
             key: "created_at" as const,
             header: "Created At",
             sortable: true,
             render: (date: string) => <FormattedDate date={date} />,
         },
-
         {
             key: "actions" as const,
             header: "Actions",
@@ -81,7 +70,6 @@ const CustomerOrder = () => {
                     >
                         <Eye className="h-3 w-3" />
                     </Button>
-
                     {/* Edit */}
                     <Button
                         variant="outline"
@@ -213,4 +201,4 @@ const CustomerOrder = () => {
         </>
     );
 };
-export default CustomerOrder;
+export default CustomerOrderPage;

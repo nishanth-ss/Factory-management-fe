@@ -37,7 +37,7 @@ import { logout } from "@/store/authSlice";
 const navigationItems = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Raw Materials", url: "/materials", icon: Package },
-  { title: "Product", url: "/product", icon: ShoppingBasket },
+  // { title: "Product", url: "/product", icon: ShoppingBasket },
   // { title: "Batches", url: "/batches", icon: ShieldMinus },
   { title: "Indents", url: "/indents", icon: FileText },
   { title: "RM Purchase Orders", url: "/purchase-orders", icon: ShoppingCart },
