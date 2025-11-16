@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 
-import { useForm, useFieldArray, useWatch, Controller } from "react-hook-form";
+import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Check, Plus, Trash2, ChevronDown } from "lucide-react";

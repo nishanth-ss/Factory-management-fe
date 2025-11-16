@@ -39,11 +39,17 @@ export interface TransitRegisterItem {
     transit_date: string;
     production_name: string;
     indent_id: string;
-    quantity: number;
+    quantity: string | number;
     unit: string;
+    store_keeper_approval: boolean;
+    jailor_approval: boolean;
+    superintendent_approval: boolean;
     created_at?: string;
     updated_at?: string;
     remarks?: string;
+    article_name: string;
+    article_remarks: string | null;
+    total_records?: number;
 }
 
 export interface TransitRegisterResponseData {
@@ -68,25 +74,32 @@ export interface TransitRegisterSingleResponse {
 }
 
 // ---------- Fetch All Transit Registers ----------
-export function useTransitRegisters(params?: { page?: number; limit?: number | string; search?: string }) {
+export function useTransitRegisters(params?: { 
+  page?: number; 
+  limit?: number | string; 
+  search?: string;
+  enabled?: boolean;
+}) {
   const page = params?.page ?? 1;
   const limit = params?.limit ?? 10;
   const search = params?.search ?? "";
+  const enabled = params?.enabled ?? true;
 
   return useQuery<TransitRegisterResponse, Error>({
     queryKey: ["transit-registers", page, limit, search],
     queryFn: async () => {
       const res = await apiRequest<TransitRegisterResponse>(
         "GET",
-        "/transit_register",
+        `/transit_register?search=${search}`,
         undefined,
-        { params: { page, limit, search } }
+        { params: { page, limit } }
       );
       return res;
     },
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     staleTime: 10_000,
+    enabled,
   });
 }
 
