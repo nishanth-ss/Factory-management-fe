@@ -111,8 +111,6 @@ export default function TransistDialogbox({
 
   const indents: any[] = indentData?.data ?? [];
 
-  console.log(indents);
-
 
   // Populate form on edit
   useEffect(() => {
@@ -123,7 +121,7 @@ export default function TransistDialogbox({
         transit_date: article.transit_date ?? "",
         production_name: article.production_name ?? "",
         indent_id: article.indent_id ?? "",
-        quantity: article.quantity ?? 0,
+        quantity: article.quantity ? Number(article.quantity) : 0,
         unit: article.unit ?? "",
         remarks: article.remarks ?? "",
       });

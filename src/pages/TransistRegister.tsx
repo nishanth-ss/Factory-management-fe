@@ -27,7 +27,7 @@ const TransistRegister = () => {
         { key: "article_name", header: "Article Name", sortable: true },
         { key: "quantity", header: "Quantity", sortable: true },
         { key: "unit", header: "Unit", sortable: true },
-        { key: "remarks", header: "Remarks", sortable: true },
+        { key: "remaining_qty", header: "Remaining Qty", sortable: true },
         { key : "transit_date", header: "Transit Date", sortable: true, render: (date: string) => <FormattedDate date={date} formatString="dd/MM/yyyy"  /> },
         { key: "created_at", header: "Created Date", sortable: true, render: (date: string) => <FormattedDate date={date} /> },
         {
