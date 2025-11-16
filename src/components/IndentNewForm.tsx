@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 
-import { useForm, useFieldArray, useWatch, Controller } from "react-hook-form";
+import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Check, Plus, Trash2, ChevronDown } from "lucide-react";
@@ -138,9 +138,9 @@ export default function IndentFormDialog() {
 
 
     // Input handler
-    const handleSearch = (value: string) => {
-        setSearchTerm(value);
-    };
+    // const handleSearch = (value: string) => {
+    //     setSearchTerm(value);
+    // };
 
     const items = useWatch({ control, name: "items" });
     const skilled = useWatch({ control, name: "skilled" });
@@ -268,11 +268,23 @@ export default function IndentFormDialog() {
                                     </div>
                                 )}
                             /> */}
-                                <select
-                                    className="border rounded-md px-2 py-1 text-sm min-w-[150px] h-[35px]"
+                             <select
+                                    className="border rounded-md px-3 py-2 text-sm w-full h-[40px]"
                                     value={selectedUnitId || ""}
-                                    onChange={(e) => setSelectedUnitId(e.target.value)}
-                                >
+                                    onChange={(e) => {
+                                        const unitId = e.target.value;
+                                        setSelectedUnitId(unitId);
+
+                                        const selectedUnit = unitData.find((u: any) => u.id === unitId);
+                                        if (selectedUnit) {
+                                            setValue("unit_name", selectedUnit.unit_name);        // Set unit_name
+                                            setValue("unit_master_id", selectedUnit.id);          // Set unit_master_id
+                                        } else {
+                                            setValue("unit_name", "");
+                                            setValue("unit_master_id", "");
+                                        }
+                                    }}
+                                >
                                     <option value="">Select Unit</option>
                                     {unitData?.map((unit: any) => (
                                         <option key={unit.id} value={unit.id}>{unit.unit_name}</option>

@@ -24,7 +24,8 @@ import {
   Settings,
   LogOut,
   ShieldMinus,
-  NotebookPen
+  NotebookPen,
+  UserStar
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
@@ -42,6 +43,7 @@ const navigationItems = [
   { title: "RM Purchase Orders", url: "/purchase-orders", icon: ShoppingCart },
   { title: "Manufacturing Articles", url: "/manufacturing-articles", icon: Factory },
   { title: "Transit Register", url: "/transist-register", icon: NotebookPen },
+  { title: "Customer Order", url: "/customer-order", icon: UserStar },
   { title: "GRN", url: "/grn", icon: Truck },
   { title: "Production", url: "/production", icon: Factory },
   { title: "Expenditure", url: "/expenditure", icon: IndianRupee },

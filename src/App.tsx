@@ -26,6 +26,7 @@ import BatchPage from "./pages/BatchPage";
 import MaterialsHistory from "./components/MaterialsHistory.tsx";
 import ManufacturingArticles from "./pages/ManufacturingArticles.tsx";
 import TransistRegister from "./pages/TransistRegister.tsx";
+import CustomerOrder from "./pages/CustomerOrder";
 
 function Router() {
   return (
@@ -40,6 +41,7 @@ function Router() {
       <Route path="/purchase-orders" component={PurchaseOrdersPage} />
       <Route path="/manufacturing-articles" component={ManufacturingArticles} />
       <Route path="/transist-register" component={TransistRegister} />
+      <Route path="/customer-order" component={CustomerOrder} />
       <Route path="/grn" component={GRNPage} />
       <Route path="/production" component={ProductionPage} />
       <Route path="/expenditure" component={ExpenditurePage} />
