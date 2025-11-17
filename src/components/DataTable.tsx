@@ -107,12 +107,6 @@ export default function DataTable({
           </TableBody>
         </Table>
 
-        {data.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground">
-            No data found.
-          </div>
-        )}
-
         {/* API Pagination controls */}
         {pagination && totalRecords > 0 && (
           <div className="flex justify-between items-center mt-4">

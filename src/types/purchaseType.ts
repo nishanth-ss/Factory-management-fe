@@ -14,6 +14,7 @@ export interface PurchaseOrderItem {
     status: string;
     expected_delivery: string; // ISO date string, e.g. "2025-10-10"
     items: PurchaseOrderItem[];
+    vendor_name?: string;
   }
 
   export interface PurchaseOrderApiResponse {

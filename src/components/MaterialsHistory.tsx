@@ -14,7 +14,7 @@ const MaterialsHistory = () => {
     const rowsPerPage = 10;
 
     const rawMaterialData = data?.data?.data || [];
-    const totalRecords = rawMaterialData[0]?.total_records || 0;
+    const totalRecords = data?.data?.pagination?.total_records || 0;
 
     const historyColumns = [
         { header: "Issue Date", key: "issue_date", render: (issue_date: string) => new Date(issue_date).toLocaleDateString() },

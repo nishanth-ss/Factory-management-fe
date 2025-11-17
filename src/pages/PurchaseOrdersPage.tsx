@@ -130,7 +130,7 @@ export default function PurchaseOrdersPage() {
       batch_no: data.purchaseOrder.batch_no,
       expected_delivery: data.purchaseOrder.expected_delivery || "",
       items: cleanedItems,
-      status: data.status,
+      status: data.status || "draft",
     };
 
     createMutation.mutate(payload as any, {
@@ -330,7 +330,7 @@ export default function PurchaseOrdersPage() {
                         )}
                       />
 
-                      {getRoleIdFromAuth() === 1 && <FormField
+                      {/* {getRoleIdFromAuth() === 1 && <FormField
                         control={form.control}
                         name={`status`}
                         render={({ field }) => (
@@ -359,7 +359,7 @@ export default function PurchaseOrdersPage() {
                             <FormMessage />
                           </FormItem>
                         )}
-                      />}
+                      />} */}
                     </div>
 
                     {/* Line Items */}

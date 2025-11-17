@@ -4,9 +4,10 @@ import { useState } from "react";
 import { useManufactureArticles } from "@/hooks/useManufactureArticles";
 import { useDebounce } from "@/hooks/useDebounce";
 import FormattedDate from "@/lib/formatDate";
-import { Eye, Edit } from "lucide-react";
+import { Eye, Edit, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { navigate } from "wouter/use-browser-location";
 
 const ManufacturingArticles = () => {
     const [open, setOpen] = useState(false);
@@ -24,8 +25,26 @@ const ManufacturingArticles = () => {
 
     const columns = [
         { key: "article_name", header: "Article Name", sortable: true },
+        { key: "remaining_qty", header: "Remaining Qty", sortable: true },
         { key: "remarks", header: "Remarks", sortable: true },
         { key: "created_at", header: "Created Date", sortable: true, render: (date: string) => <FormattedDate date={date} /> },
+        {
+            key: "history",
+            header: "History",
+            render: (_value: any, row: any) => (
+                <div className="flex gap-1">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                            navigate(`/manufacturing-articles/${row.id}`);
+                        }}
+                    >
+                        <History className="h-3 w-3" />
+                    </Button>
+                </div>
+            ),
+        },
         {
             key: "actions", header: "Actions", render: (_value: any, row: any) => (
                 <div className="flex gap-1">
@@ -37,7 +56,7 @@ const ManufacturingArticles = () => {
                         size="sm"
                         data-testid={`button-edit-${row.id}`}
                         title="Update Status"
-                        onClick={() => {handleUpdateStatus(row)}}
+                        onClick={() => { handleUpdateStatus(row) }}
                     >
                         <Edit className="h-3 w-3" />
                     </Button>
@@ -72,7 +91,7 @@ const ManufacturingArticles = () => {
                     <h1 className="text-3xl font-bold">Manufacturing Articles</h1>
                     <p className="text-muted-foreground">Manage manufacturing articles</p>
                 </div>
-                <ManufactureArticleDialog open={open} setOpen={setOpen} editId={selectedArticle?.id} setSelectedArticle={setSelectedArticle}  />
+                <ManufactureArticleDialog open={open} setOpen={setOpen} editId={selectedArticle?.id} setSelectedArticle={setSelectedArticle} />
             </div>
 
             <DataTable

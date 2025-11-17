@@ -21,6 +21,7 @@ const createGrnFormSchema = z.object({
   gate_pass_number: z.string().min(1, "Gate Pass Number is required"),
   notes: z.string().optional(),
   received_by: z.string().optional(),
+  status: z.string().optional(),
 });
 
 export type CreateGrnFormData = z.infer<typeof createGrnFormSchema>;
@@ -48,24 +49,33 @@ const generateGRNNumber = () => {
 
 // ---------------------- Component ----------------------
 export default function GRNForm({ onSubmit, setIsCreateDialogOpen, selectedGrn, setSelectedGrn }: GRNFormProps) {
-  const [selectedPOId, setSelectedPOId] = useState<string>(""); // will hold the display purchase_order_id
+  // State declarations
+  const [selectedPOId, setSelectedPOId] = useState<string>("");
+  const [file, setFile] = useState<File | null>(null);
+  const [images, setImages] = useState<File[]>([]);
+  const [uploadedUrls, setUploadedUrls] = useState<any[]>([]);
+  const [imageError, setImageError] = useState(false);
+
+  // API hooks
   const createGrnMutation = useCreateGrn();
   const updateGrnMutation = useUpdateGrn();
   const uploadMutation = useUploadGrnFile();
   const deleteFileMutation = uploadFileDeletion();
-  const [imageError, setImageError] = useState(false);
-
-  // Provide the selected GRN id to the query and get a refetch function
+  
+  // Data fetching
   const { refetch: refetchSingleGrn } = useSingleGrn(selectedGrn?.grn_id, { enabled: !!selectedGrn?.grn_id });
-
-  const { data: poResponse } = usePurchaseOrders();
-  const approvedPOsData: PurchaseOrder[] = poResponse?.data ?? [];
+  const { data: poResponse } = usePurchaseOrders({
+    page: 1,
+    limit: 100,
+    search: selectedGrn?.purchase_order_id || ''
+  });
   const { data: vendors } = useVendors();
+  
+  // Derived state
+  const approvedPOsData: PurchaseOrder[] = poResponse?.data ?? [];
   const vendorResponse = vendors?.data ?? [];
-  const [file, setFile] = useState<File | null>(null);
-  const [images, setImages] = useState<File[]>([]);
-  const [uploadedUrls, setUploadedUrls] = useState<any[]>([]);
 
+  // Form declaration
   const form = useForm<CreateGrnFormData>({
     resolver: zodResolver(createGrnFormSchema),
     defaultValues: {
@@ -73,23 +83,47 @@ export default function GRNForm({ onSubmit, setIsCreateDialogOpen, selectedGrn, 
       purchase_order_id: "",
       gate_pass_number: "",
       notes: "",
+      received_by: "",
+      status: "",
     },
   });
 
 
   // Effect 1: run once when selectedGrn changes to prefill the form
+  // In the useEffect that handles selectedGrn changes
+  // Replace the entire useEffect that handles selectedGrn changes with this:
   useEffect(() => {
-    if (!selectedGrn) return;
-    const immediatePOId = String(selectedGrn.purchase_order_id ?? "").trim();
-    // Reset once to the GRN values
-    form.reset({
-      grn_no: selectedGrn.grn_no ?? generateGRNNumber(),
-      purchase_order_id: immediatePOId,
-      gate_pass_number: selectedGrn.gate_pass_number ?? "",
-      notes: selectedGrn.notes ?? "",
-      received_by: selectedGrn.received_by ?? "",
-    });
-    setSelectedPOId(immediatePOId);
+    if (!selectedGrn) {
+      form.reset({
+        grn_no: generateGRNNumber(),
+        purchase_order_id: "",
+        gate_pass_number: "",
+        notes: "",
+        received_by: "",
+        status: "",
+      });
+      return;
+    }
+
+    // Create the form values object
+    const formValues = {
+      grn_no: selectedGrn.grn_no || generateGRNNumber(),
+      purchase_order_id: selectedGrn.purchase_order_id || "",
+      gate_pass_number: selectedGrn.gate_pass_number || "",
+      notes: selectedGrn.notes || "",
+      received_by: selectedGrn.received_by || "",
+      status: selectedGrn.status || "",
+    };
+
+    console.log("Setting form values:", formValues);
+
+    // Reset form with all values at once
+    form.reset(formValues);
+
+    // Also update the selectedPOId
+    if (selectedGrn.purchase_order_id) {
+      setSelectedPOId(selectedGrn.purchase_order_id);
+    }
   }, [selectedGrn]);
 
   useEffect(() => {
@@ -129,12 +163,24 @@ export default function GRNForm({ onSubmit, setIsCreateDialogOpen, selectedGrn, 
   }, [approvedPOsData, selectedGrn]);
 
   const handleSubmit = (data: CreateGrnFormData) => {
-    if (!selectedPO) return;
     if (selectedGrn) {
+      // For update, ensure we have the correct purchase_order_id
+      const poId = data.purchase_order_id || selectedPOId || selectedGrn.purchase_order_id;
+
+      // If we still don't have a PO ID, show validation error
+      if (!poId) {
+        form.setError('purchase_order_id', {
+          type: 'manual',
+          message: 'Purchase Order is required',
+        });
+        return;
+      }
+
       const payload: any = {
         ...data,
-        purchase_order_id: selectedPO?.id ?? String((selectedGrn as any)?.id ?? ""),
+        purchase_order_id: poId,
       };
+
       updateGrnMutation.mutate({ id: selectedGrn.grn_id, data: payload }, {
         onSuccess: () => {
           setIsCreateDialogOpen(false);
@@ -182,6 +228,7 @@ export default function GRNForm({ onSubmit, setIsCreateDialogOpen, selectedGrn, 
       total_value: Number((selectedGrn as any).total_amount ?? 0),
       expected_delivery: String((selectedGrn as any).expected_delivery ?? ""),
       po_no: String((selectedGrn as any).po_no ?? ""),
+      status: String((selectedGrn as any).status ?? ""),
     } as any
     : undefined);
 
@@ -196,8 +243,8 @@ export default function GRNForm({ onSubmit, setIsCreateDialogOpen, selectedGrn, 
     if (!path) return "";
     const fixedPath = path.replace(/\\/g, "/");
     // Adjust this base according to your backend
-    const baseUrl = import.meta.env.VITE_API_URL;   
-    const cleanUrl = baseUrl.replace("/api", "") 
+    const baseUrl = import.meta.env.VITE_API_URL;
+    const cleanUrl = baseUrl.replace("/api", "")
     return `${cleanUrl}${fixedPath}`;
   }
 
@@ -240,32 +287,30 @@ export default function GRNForm({ onSubmit, setIsCreateDialogOpen, selectedGrn, 
               <FormItem>
                 <FormLabel>Purchase Order*</FormLabel>
                 <Select
-                  value={(field.value as string) ? field.value : selectedPO?.purchase_order_id}
+                  value={field.value || ''}
                   onValueChange={(value) => {
-                    setSelectedPOId(value);
                     field.onChange(value);
+                    setSelectedPOId(value);
                   }}
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select PO" />
+                      <SelectValue placeholder="Select PO">
+                        {field.value ? 
+                          (() => {
+                            const selectedPO = poResponse?.data?.find((po: any) => po.purchase_order_id === field.value);
+                            return selectedPO ? `${selectedPO.purchase_order_id} - ${selectedPO.vendor_name || 'Vendor'}` : 'Select PO';
+                          })() 
+                          : "Select PO"}
+                      </SelectValue>
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {/* If current value isn't in list (due to pagination), include it so the select shows a value */}
-                    {selectedPOId && !approvedPOsData.some((po) => String((po as any).purchase_order_id) === String(selectedPOId)) && (
-                      <SelectItem key={`current-${selectedPOId}`} value={selectedPOId}>
-                        {selectedPOId}
+                    {poResponse?.data?.map((po: any) => (
+                      <SelectItem key={po.id} value={po.purchase_order_id}>
+                        {po.purchase_order_id} - {po.vendor_name || 'Vendor'}
                       </SelectItem>
-                    )}
-                    {approvedPOsData.map((po) => {
-                      const vendorName = vendorResponse?.find((v: any) => v.id === (po as any).vendor_id)?.name || "Vendor";
-                      return (
-                        <SelectItem key={po.id} value={String((po as any).purchase_order_id)}>
-                          {(po as any).purchase_order_id} - {vendorName}
-                        </SelectItem>
-                      );
-                    })}
+                    ))}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -485,6 +530,38 @@ export default function GRNForm({ onSubmit, setIsCreateDialogOpen, selectedGrn, 
 
           </CardContent>
         </Card>
+
+        <div className="max-w-sm">
+          <FormField
+            control={form.control}
+            name={`status`}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Status</FormLabel>
+                <Select key={`status-${field.value}`} onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger data-testid="select-status">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {[
+                      { id: "draft", name: "Draft" },
+                      { id: "approved", name: "Approved" },
+                      { id: "cancelled", name: "Cancelled" },
+                      { id: "returned", name: "Returned" },
+                    ].map((m: any) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
 
         {/* Actions */}

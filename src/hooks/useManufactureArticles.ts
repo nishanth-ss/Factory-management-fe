@@ -105,3 +105,14 @@ export const useDeleteManufactureArticle = () => {
     },
   });
 };
+
+export const useManufactureArticleHistory = (id: string) => {
+
+  const { data, error, ...rest } = useQuery({
+    queryKey: ['manufactureArticleHistory', id],
+    queryFn: () => 
+      apiRequest<any>("GET", `/manufacture-articles/history/${id}`)
+  });
+
+  return { data, error, ...rest };
+};
