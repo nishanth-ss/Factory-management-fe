@@ -19,6 +19,7 @@ export default function GRNPage() {
   const [selectedGrn,setSelectedGrn] = useState<GrnType | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const { data: grns = [] } = useGrns({ page, limit:rowsPerPage, search });  
+  const totalRecords = grns?.pagination?.total_records || 0;
 
   const grnColumns = [
     { key: "grn_no", header: "GRN Number", sortable: true },
@@ -27,7 +28,7 @@ export default function GRNPage() {
     { key: "vendor_name", header: "Vendor", sortable: true },
     { key: "received_by_name", header: "Received By", sortable: true },
     {
-      key: "purchase_order_status",
+      key: "status",
       header: "Status", 
       sortable: true,
       render: (status: string) => <StatusBadge status={status as any} size="sm" />
@@ -97,7 +98,7 @@ export default function GRNPage() {
           exportable={true}
           pagination={true}
           rowsPerPage={rowsPerPage}
-          totalRecords={grns?.total || 0}
+          totalRecords={totalRecords || 0}
           currentPage={page}
           onPageChange={(newPage) => setPage(newPage)}
           search={search}
