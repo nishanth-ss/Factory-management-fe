@@ -33,7 +33,7 @@ const UsersPage = () => {
       key: "actions",
       render: (_value: any, row: any) => (
         <div className="flex gap-1">
-          <Button variant="outline" size="sm" data-testid={`button-edit-${row.id}`} onClick={() => { setOpen(true); setLocation(`/users/${row.id}`); }}>
+          <Button variant="outline" size="sm" data-testid={`button-edit-${row.id}`} onClick={() => { handleEditClick(row); }}>
             <Edit className="h-3 w-3" />
           </Button>
           <Button variant="outline" size="sm" data-testid={`button-view-${row.id}`} onClick={() => { setDeleteModal(true); setSelectedUserId(row); }}>
@@ -43,6 +43,12 @@ const UsersPage = () => {
       )
     },
   ];
+
+  const handleEditClick = (row: any) => {
+  setSelectedUserId(row.id);
+  setLocation(`/users/${row.id}`, { replace: true });
+  setOpen(true);
+};
 
   const userRows = Array.isArray(usersData?.data?.response) ? usersData?.data?.response?.map((user: any, index: any) => ({
     sno: (page - 1) * rowsPerPage + index + 1,

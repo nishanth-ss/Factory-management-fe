@@ -23,7 +23,7 @@ const getSchema = (isEdit: boolean) =>
     .object({
       username: z.string().min(1, "Username is required"),
       email: z.string().email("Invalid email"),
-      role: z.enum(["admin", "productionsupervisor"]),
+      role: z.enum(["superintendent", "storekeeper", "jailor"]),
       password: isEdit
         ? z.string().optional()
         : z.string().min(6, "Password must be at least 6 characters"),
@@ -66,12 +66,18 @@ export default function CreateUserDialog({ open, setOpen }: { open: boolean; set
     defaultValues: {
       username: "",
       email: "",
-      role: "admin",
+      role: "jailor",
       password: "",
       confirmPassword: "",
     },
     resolver: zodResolver(getSchema(!!id)),
   });
+
+  useEffect(() => {
+  if (id) {
+    setOpen(true);
+  }
+}, [id]);
 
   useEffect(() => {
     if (singleUser?.data) {
@@ -84,7 +90,7 @@ export default function CreateUserDialog({ open, setOpen }: { open: boolean; set
       reset({
         username: "",
         email: "",
-        role: "admin",
+        role: "jailor",
         password: "",
         confirmPassword: "",
       });
@@ -138,7 +144,7 @@ export default function CreateUserDialog({ open, setOpen }: { open: boolean; set
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{id ? "Edit User" : "Create New User"}</DialogTitle>
-          <DialogDescription>Fill in details to create a new user.</DialogDescription>
+          <DialogDescription>Fill in details to {id ? "edit" : "create a new"} user.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -153,13 +159,14 @@ export default function CreateUserDialog({ open, setOpen }: { open: boolean; set
           </div>
 
           <div>
-            <Select value={role} onValueChange={(val) => setValue("role", val as "admin" | "productionsupervisor")}>
+            <Select value={role} onValueChange={(val) => setValue("role", val as "superintendent" | "storekeeper" | "jailor")}>
               <SelectTrigger>
                 <SelectValue placeholder="Select Role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="productionsupervisor">Production Supervisor</SelectItem>
+                <SelectItem value="superintendent">Superintendent</SelectItem>
+                <SelectItem value="storekeeper">Storekeeper</SelectItem>
+                <SelectItem value="jailor">Jailor</SelectItem>
               </SelectContent>
             </Select>
             {errors.role && <p className="text-red-500 text-sm">{errors.role.message}</p>}

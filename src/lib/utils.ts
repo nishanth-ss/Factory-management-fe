@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export const getRoleIdFromAuth = (): 1 | 2 => {
+export const getRoleIdFromAuth = (): 1 | 2 | 3 => {
   const persistRoot = localStorage.getItem("persist:root");
   if (!persistRoot) throw new Error("Persisted root not found");
 
@@ -16,5 +16,5 @@ export const getRoleIdFromAuth = (): 1 | 2 => {
   const auth = JSON.parse(authString); 
   const role = auth.user.role.toLowerCase();
 
-  return role === "admin" ? 1 : 2;
+  return role === "superintendent" ? 1 : role === "storekeeper" ? 2 : 3;
 };

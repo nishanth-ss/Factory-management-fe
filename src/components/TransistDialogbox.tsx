@@ -116,9 +116,12 @@ export default function TransistDialogbox({
   useEffect(() => {
     if (singleArticle?.data) {
       const article = singleArticle.data;
+      const formattedDate = article.transit_date 
+      ? new Date(article.transit_date).toISOString().split('T')[0]
+      : '';
       form.reset({
         manufacture_articles_id: article.manufacture_articles_id ?? "",
-        transit_date: article.transit_date ?? "",
+        transit_date: formattedDate,
         production_name: article.production_name ?? "",
         indent_id: article.indent_id ?? "",
         quantity: article.quantity ? Number(article.quantity) : 0,
@@ -195,7 +198,7 @@ export default function TransistDialogbox({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
             {/* Manufacture Article Select */}
-            <FormField
+            {!editId && <FormField
               control={form.control}
               name="manufacture_articles_id"
               rules={{ required: "Manufacturing article is required" }}
@@ -296,7 +299,7 @@ export default function TransistDialogbox({
                   </FormItem>
                 );
               }}
-            />
+            />}
 
             {/* Transit Date */}
             <FormField
