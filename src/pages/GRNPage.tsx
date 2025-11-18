@@ -9,7 +9,7 @@ import FormattedDate from "@/lib/formatDate";
 import type { GrnType } from "@/types/grn";
 import { ViewDialog } from "@/components/common/ViewDialogBox";
 import StatusBadge from "@/components/StatusBadge";
-
+import { getRoleIdFromAuth } from "@/lib/utils";
 
 export default function GRNPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -20,6 +20,7 @@ export default function GRNPage() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const { data: grns = [] } = useGrns({ page, limit:rowsPerPage, search });  
   const totalRecords = grns?.pagination?.total_records || 0;
+  const Role = getRoleIdFromAuth();
 
   const grnColumns = [
     { key: "grn_no", header: "GRN Number", sortable: true },
@@ -48,7 +49,9 @@ export default function GRNPage() {
           <Button variant="outline" size="sm" data-testid={`button-view-${row.id}`} onClick={() => {setSelectedGrn(row), setIsViewDialogOpen(true)}}>
             <Eye className="h-3 w-3" />
           </Button>
-          <Button variant="outline" size="sm" data-testid={`button-edit-${row.id}`} onClick={() => {setSelectedGrn(row), setIsCreateDialogOpen(true)}}>
+          <Button variant="outline" size="sm" data-testid={`button-edit-${row.id}`} onClick={() => {setSelectedGrn(row), setIsCreateDialogOpen(true)}}
+            disabled={Role !== 1}
+            >
             <Edit className="h-3 w-3" />
           </Button>
         </div>

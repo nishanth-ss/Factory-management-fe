@@ -7,6 +7,7 @@ import { Eye, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import TransistDialogbox from "@/components/TransistDialogbox";
+import { getRoleIdFromAuth } from "@/lib/utils";
 
 const TransistRegister = () => {
     const [open, setOpen] = useState(false);
@@ -16,6 +17,7 @@ const TransistRegister = () => {
     const [search, setSearch] = useState("");
     const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const Role = getRoleIdFromAuth();
 
     const debouncedSearch = useDebounce(search, 350);
     const { data } = useTransitRegisters({ page, limit: rowsPerPage, search: debouncedSearch });
@@ -42,6 +44,7 @@ const TransistRegister = () => {
                         data-testid={`button-edit-${row.id}`}
                         title="Update Status"
                         onClick={() => {handleUpdateStatus(row)}}
+                        disabled={Role !== 1}
                     >
                         <Edit className="h-3 w-3" />
                     </Button>

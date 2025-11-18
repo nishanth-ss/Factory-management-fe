@@ -8,6 +8,7 @@ import { Eye, Edit, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { navigate } from "wouter/use-browser-location";
+import { getRoleIdFromAuth } from "@/lib/utils";
 
 const ManufacturingArticles = () => {
     const [open, setOpen] = useState(false);
@@ -17,6 +18,7 @@ const ManufacturingArticles = () => {
     const [search, setSearch] = useState("");
     const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const Role = getRoleIdFromAuth();
 
     const debouncedSearch = useDebounce(search, 350);
     const { data } = useManufactureArticles({ page, limit: rowsPerPage, search: debouncedSearch });
@@ -57,6 +59,7 @@ const ManufacturingArticles = () => {
                         data-testid={`button-edit-${row.id}`}
                         title="Update Status"
                         onClick={() => { handleUpdateStatus(row) }}
+                        disabled={Role !== 1}
                     >
                         <Edit className="h-3 w-3" />
                     </Button>

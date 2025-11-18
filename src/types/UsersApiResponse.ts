@@ -4,7 +4,7 @@ export interface UserType {
   name: string;
   email: string;
   password?: string;
-  role: "admin" | "productionsupervisor";
+  role: "superintendent" | "storekeeper" | "jailor";
   created_at?: string; 
 }
 

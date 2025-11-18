@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useCustomerOrders, type CustomerOrder } from "@/hooks/useCustomerOrders";
 import CustomerOrderDialog from "@/components/CustomerOrderDialog";
+import { getRoleIdFromAuth } from "@/lib/utils";
 
 const CustomerOrderPage = () => {
     const [open, setOpen] = useState(false);
@@ -21,6 +22,7 @@ const CustomerOrderPage = () => {
     const { data } = useCustomerOrders({ page, limit: rowsPerPage, search: debouncedSearch });
     const orders = data?.data?.data || [];
     const totalRecords = data?.data?.pagination?.total_records || 0;
+    const Role = getRoleIdFromAuth();
 
     const columns = [
         // { key: "transit_register_id" as const, header: "Transit Register ID", sortable: true },
@@ -76,6 +78,7 @@ const CustomerOrderPage = () => {
                         size="sm"
                         title="Edit"
                         onClick={() => handleUpdateStatus(row)}
+                        disabled={Role !== 1}   
                     >
                         <Edit className="h-3 w-3" />
                     </Button>

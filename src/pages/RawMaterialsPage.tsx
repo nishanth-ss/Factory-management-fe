@@ -40,6 +40,7 @@ import { useSelector } from "react-redux";
 import type { RootState } from "@/store/store";
 import { useCreateUnit, useUnits, useUpdateUnit } from "@/hooks/useUnit";
 import { navigate } from "wouter/use-browser-location";
+import { getRoleIdFromAuth } from "@/lib/utils";
 
 // ===============================
 // 🔹 Validation Schemas
@@ -156,6 +157,8 @@ export default function RawMaterialsPage() {
   });
   const unitData = unit?.data?.data || [];
   const unitTotalRecords = unit?.data?.paginationData?.totalRecords || 0;
+
+  const Role = getRoleIdFromAuth();
 
   useEffect(() => {
     refetchUnit();
@@ -335,6 +338,7 @@ export default function RawMaterialsPage() {
               setSelectedIndent(row);
               setIsCreateDialogOpen(true);
             }}
+            disabled={Role !== 1}
           >
             <Edit className="h-3 w-3" />
           </Button>
@@ -391,6 +395,7 @@ export default function RawMaterialsPage() {
               setSelectedUnit(row);
               setIsCreateDialogOpen(true);
             }}
+            disabled={Role !== 1}
           >
             <Edit className="h-3 w-3" />
           </Button>
