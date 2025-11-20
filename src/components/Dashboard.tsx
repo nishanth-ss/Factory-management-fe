@@ -42,7 +42,7 @@ export default function Dashboard() {
   // Transform pending approvals data
 
   const approvalColumns = [
-    { key: "id", header: "ID", sortable: true },
+    // { key: "id", header: "ID", sortable: true },
     { key: "type", header: "Type", sortable: true },
     { key: "reference_no", header: "Reference No", sortable: true },
     {
@@ -152,7 +152,7 @@ export default function Dashboard() {
           exportable={false}
           pagination={true}
           rowsPerPage={rowsPerPage}
-          totalRecords={dashboardPendingApprovalData?.pagination?.totalPages || 0}
+          totalRecords={dashboardPendingApprovalData?.pagination?.totalRecords || 0}
           currentPage={pendingPage}
           onPageChange={(newPage) => setPendingPage(newPage)}
         />

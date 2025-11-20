@@ -9,7 +9,10 @@ export interface RawMaterialBatchType {
     end_date: string;        
     status?: string;
     notes?: string;    
-    raw_material_name?: string;   
+    raw_material_name?: string;  
+    completed_units?: number;
+    active_units?: number;
+    total_units?: number; 
   }
   
   // 🔹 Response when creating/updating a batch
@@ -20,13 +23,10 @@ export interface RawMaterialBatchType {
   }
   
   // 🔹 Paginated API response for fetching batches
-  export interface RawMaterialBatchApiResponse {
-    success: boolean;
-    message: string;
-    data: RawMaterialBatchType[];
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  }
+export interface RawMaterialBatchesApiResponse {
+  status: boolean;
+  data: RawMaterialBatchType[];
+  total: number;
+  message: string;
+}
   

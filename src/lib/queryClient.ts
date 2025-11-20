@@ -9,6 +9,8 @@ const axiosInstance = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+export const authErrorEmitter = new EventTarget();
+
 // Attach token to all requests except login
 axiosInstance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   if (config.url !== "/auth/login") {
@@ -30,6 +32,7 @@ async function handleAxiosError(error: unknown): Promise<never> {
     if (status === 401 || status === 403) {
       // Optionally redirect to login
       // window.location.href = "/login";
+      authErrorEmitter.dispatchEvent(new Event("authError"));
       throw new Error("Unauthorized");
     }
     // Prefer server-provided message when available

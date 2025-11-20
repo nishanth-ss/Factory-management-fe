@@ -28,8 +28,31 @@ import ManufacturingArticles from "./pages/ManufacturingArticles.tsx";
 import TransistRegister from "./pages/TransistRegister.tsx";
 import CustomerOrder from "./pages/CustomerOrder.tsx";
 import MaterialArticlesHistory from "./components/MaterialArticlesHistory.tsx";
+import { useEffect } from "react";
+import { authErrorEmitter } from "@/lib/queryClient";
+import { useToast } from "./hooks/useNoistackToast.ts";
 
 function Router() {
+  
+const { toast } = useToast();
+
+  useEffect(() => {
+    const handleAuthError = () => {
+      toast(
+        "Session expired. Redirecting to login...",
+       { variant: "error" },
+      );
+
+      setTimeout(() => {
+        localStorage.clear();
+        window.location.href = "/login";
+      }, 2000);
+    };
+
+    authErrorEmitter.addEventListener("authError", handleAuthError);
+    return () => authErrorEmitter.removeEventListener("authError", handleAuthError);
+  }, [toast]);
+
   return (
     <Switch>
       {/* Public / authenticated routes available to all logged-in roles */}

@@ -10,6 +10,7 @@ export interface IndentType {
   requested_by?: string;
   created_at?: string;
   requested_by_name?: string;
+  totalRecords?: number;
 }
 
 export type IndentStatus =
@@ -31,11 +32,6 @@ export type IndentStatus =
 
 export interface IndentsApiResponse {
   status: boolean;
-  data: {
-    indents: IndentType[];
-    total: number;
-    page: number;
-    limit: number;
-  };
+  data: IndentType[];
   message: string;
 }

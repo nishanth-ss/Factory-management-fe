@@ -43,6 +43,7 @@ export default function DataTable({
   extraComp,
 }: DataTableProps) {
   const totalPages = Math.ceil(totalRecords / rowsPerPage);
+  
   return (
     <Card>
       <CardHeader>
@@ -111,7 +112,7 @@ export default function DataTable({
         {pagination && totalRecords > 0 && (
           <div className="flex justify-between items-center mt-4">
             <span className="text-sm text-muted-foreground">
-              Page {currentPage} of {totalPages}
+              Showing {data.length} of {totalRecords} records
             </span>
             <div className="flex gap-2">
               <Button

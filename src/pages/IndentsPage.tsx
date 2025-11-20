@@ -30,6 +30,7 @@ export default function IndentsPage() {
   const indentState = useSelector((state: RootState) => state.manufacturing.indentResponse);
   const indentData = indentState?.data;
   const indent: any = indentData || [];
+  const totalRecords = indentData?.[0]?.totalRecords || 0;
 
   const roleId = getRoleIdFromAuth();
 
@@ -148,7 +149,7 @@ export default function IndentsPage() {
         exportable={true}
         pagination={true}
         rowsPerPage={rowsPerPage}
-        totalRecords={indentData?.total || 0}
+        totalRecords={totalRecords || 0}
         currentPage={page}
         onPageChange={(newPage) => setPage(newPage)}
         search={search}

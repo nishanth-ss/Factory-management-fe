@@ -136,12 +136,10 @@ export default function ExpenditurePage() {
   const [limit] = useState(6);
 
   const { data: expenditures } = useExpenditures({ page, limit, category: categoryFilter === "all" ? "" : categoryFilter, type: typeFilter === "all" ? "" : typeFilter, search: useDebounce(searchTerm) });
-  const topCards = expenditures?.monthlyCosts?.[0];
-
-  const detailsCardData = expenditures?.data;
-  const totalPages = expenditures?.totalPages;
-  console.log(detailsCardData);
+  const summaryData = expenditures?.summary;
   
+  const detailsCardData = expenditures?.data;
+  const totalPages = expenditures?.totalPages;  
 
   return (
     <div className="space-y-6">
@@ -163,31 +161,31 @@ export default function ExpenditurePage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
           title="Total Expenses"
-          amount={topCards?.grand_total_cost}
+          amount={summaryData?.total_expenses}
           icon={IndianRupee}
-          change={Number(topCards?.change_from_last_month?.grand_total_cost) || 0}
-          changeType={Number(topCards?.change_from_last_month?.grand_total_cost) > 0 ? "positive" : "negative"}
+          // change={Number(topCards?.change_from_last_month?.grand_total_cost) || 0}
+          // changeType={Number(topCards?.change_from_last_month?.grand_total_cost) > 0 ? "positive" : "negative"}
         />
         <SummaryCard
           title="Materials Cost"
-          amount={topCards?.total_material_cost}
+          amount={summaryData?.total_material_cost}
           icon={Package}
-          change={Number(topCards?.change_from_last_month?.total_material_cost) || 0}
-          changeType={Number(topCards?.change_from_last_month?.total_material_cost) > 0 ? "positive" : "negative"}
+          // change={Number(topCards?.change_from_last_month?.total_material_cost) || 0}
+          // changeType={Number(topCards?.change_from_last_month?.total_material_cost) > 0 ? "positive" : "negative"}
         />
         <SummaryCard
           title="Production Cost"
-          amount={topCards?.total_production_cost}
+          amount={summaryData?.total_production_cost}
           icon={Factory}
-          change={Number(topCards?.change_from_last_month?.total_production_cost) || 0}
-          changeType={Number(topCards?.change_from_last_month?.total_production_cost) > 0 ? "positive" : "negative"}
+          // change={Number(topCards?.change_from_last_month?.total_production_cost) || 0}
+          // changeType={Number(topCards?.change_from_last_month?.total_production_cost) > 0 ? "positive" : "negative"}
         />
         <SummaryCard
           title="Operations Cost"
-          amount={topCards?.total_operation_expense}
+          amount={summaryData?.total_operations_cost}
           icon={TrendingUp}
-          change={Number(topCards?.change_from_last_month?.total_production_cost) || 0}
-          changeType={Number(topCards?.change_from_last_month?.total_production_cost) > 0 ? "positive" : "negative"}
+          // change={Number(topCards?.change_from_last_month?.total_production_cost) || 0}
+          // changeType={Number(topCards?.change_from_last_month?.total_production_cost) > 0 ? "positive" : "negative"}
         />
       </div>
 
