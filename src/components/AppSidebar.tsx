@@ -32,6 +32,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useDispatch } from "react-redux";
 import { persistor } from "@/store/store";
 import { logout } from "@/store/authSlice";
+import logo from "@/assets/logo.png";
 
 // Navigation items visible to all roles
 const navigationItems = [
@@ -84,15 +85,9 @@ export default function AppSidebar() {
 
   return (
     <Sidebar data-testid="sidebar-main">
-      <SidebarHeader className="p-4">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded bg-primary flex items-center justify-center">
-            <Factory className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold">MfgMS</h2>
-            <p className="text-xs text-muted-foreground">Manufacturing Management</p>
-          </div>
+      <SidebarHeader>
+        <div>
+            <img src={logo} alt="AG soft solution" className="w-[60%] mx-auto" />
         </div>
       </SidebarHeader>
 

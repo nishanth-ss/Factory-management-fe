@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/useNoistackToast";
+import logo from "@/assets/logo.png";
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
@@ -29,6 +30,7 @@ export default function LoginForm() {
     <div className="min-h-screen flex items-center justify-center bg-muted/50">
       <Card className="w-full max-w-md">
         <CardHeader>
+          <img src={logo} alt="AG soft solution" className="w-[60%] mx-auto" />
           <CardTitle className="text-center">Manufacturing Management System</CardTitle>
           <p className="text-center text-sm text-muted-foreground">
             Sign in to your account
